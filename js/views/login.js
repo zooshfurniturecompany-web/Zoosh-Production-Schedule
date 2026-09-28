@@ -61,42 +61,10 @@ window.Zoosh.Views.Login = {
               </div>
             </div>
 
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; font-size: 13px;">
-              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-secondary);">
-                <input type="checkbox" id="login-remember" checked />
-                <span>Remember me on this device</span>
-              </label>
-            </div>
-
-            <button type="submit" id="btn-login-submit" class="btn btn-primary btn-block" style="padding: 12px; font-size: 15px; font-weight: 700; width: 100%;">
+            <button type="submit" id="btn-login-submit" class="btn btn-primary btn-block" style="padding: 12px; font-size: 15px; font-weight: 700; width: 100%; margin-top: 8px;">
               Sign In to Factory Control Room &rarr;
             </button>
           </form>
-
-          <!-- Quick Access Shortcuts for Demo/Evaluation -->
-          <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-light);">
-            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; color: var(--text-muted); text-align: center; margin-bottom: 12px;">
-              Quick Evaluation Credentials
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-              <button 
-                type="button" 
-                class="btn btn-secondary btn-sm" 
-                style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;"
-                onclick="window.Zoosh.Views.Login.quickFill('zooshadmin', 'zooshadmin1234')"
-              >
-                <span>🔑</span> Manager Login
-              </button>
-              <button 
-                type="button" 
-                class="btn btn-secondary btn-sm" 
-                style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;"
-                onclick="window.Zoosh.Views.Login.quickFill('zooshadmin1234', 'zooshadmin098')"
-              >
-                <span>👁️</span> Visitor Login
-              </button>
-            </div>
-          </div>
 
           <!-- Role Permissions Guide -->
           <div class="login-role-guide">
@@ -125,23 +93,6 @@ window.Zoosh.Views.Login = {
     }
   },
 
-  quickFill(username, password) {
-    const userInput = document.getElementById('login-username');
-    const pwdInput = document.getElementById('login-password');
-    if (userInput) userInput.value = username;
-    if (pwdInput) pwdInput.value = password;
-    this.hideError();
-    // Submit automatically
-    const form = document.getElementById('factory-login-form');
-    if (form) {
-      if (typeof form.requestSubmit === 'function') {
-        form.requestSubmit();
-      } else {
-        this.handleSubmit(new Event('submit'));
-      }
-    }
-  },
-
   showError(message) {
     const errorBox = document.getElementById('login-error-alert');
     if (errorBox) {
@@ -163,12 +114,10 @@ window.Zoosh.Views.Login = {
 
     const userInput = document.getElementById('login-username');
     const pwdInput = document.getElementById('login-password');
-    const rememberInput = document.getElementById('login-remember');
     const submitBtn = document.getElementById('btn-login-submit');
 
     const username = userInput ? userInput.value.trim() : '';
     const password = pwdInput ? pwdInput.value : '';
-    const rememberMe = rememberInput ? rememberInput.checked : false;
 
     if (!username || !password) {
       this.showError('Please enter both username and password.');
@@ -181,7 +130,8 @@ window.Zoosh.Views.Login = {
     }
 
     try {
-      await window.Zoosh.Auth.login(username, password, rememberMe);
+      // Always persist login session forever
+      await window.Zoosh.Auth.login(username, password, true);
       this.hideError();
       // On success, boot application
       if (window.Zoosh.App) {

@@ -128,9 +128,9 @@
         } catch (e) {}
       }
 
-      // Check for active session in sessionStorage first, then localStorage
+      // Check for active session in localStorage (persistent forever) first, then sessionStorage
       const sessionStorage = getStorage('session');
-      let sessionStr = sessionStorage.getItem(SESSION_STORAGE_KEY) || localStorage.getItem(SESSION_STORAGE_KEY);
+      let sessionStr = localStorage.getItem(SESSION_STORAGE_KEY) || sessionStorage.getItem(SESSION_STORAGE_KEY);
       if (sessionStr) {
         try {
           const parsed = JSON.parse(sessionStr);
@@ -213,14 +213,10 @@
 
       this._currentUser = session;
 
-      // Persist session
+      // Persist session forever in localStorage so user never has to relogin
       const sessionJson = JSON.stringify(session);
+      getStorage('local').setItem(SESSION_STORAGE_KEY, sessionJson);
       getStorage('session').setItem(SESSION_STORAGE_KEY, sessionJson);
-      if (rememberMe) {
-        getStorage('local').setItem(SESSION_STORAGE_KEY, sessionJson);
-      } else {
-        getStorage('local').removeItem(SESSION_STORAGE_KEY);
-      }
 
       this._notify();
       return this._currentUser;
