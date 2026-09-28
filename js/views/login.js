@@ -33,7 +33,7 @@ window.Zoosh.Views.Login = {
                   type="text" 
                   id="login-username" 
                   class="form-input" 
-                  placeholder="Enter username (manager or visitor)" 
+                  placeholder="Enter username (zooshadmin or zooshadmin1234)" 
                   autocomplete="username"
                   required 
                   autofocus
@@ -83,7 +83,7 @@ window.Zoosh.Views.Login = {
                 type="button" 
                 class="btn btn-secondary btn-sm" 
                 style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;"
-                onclick="window.Zoosh.Views.Login.quickFill('manager', 'ChangeThisManagerPassword')"
+                onclick="window.Zoosh.Views.Login.quickFill('zooshadmin', 'zooshadmin1234')"
               >
                 <span>🔑</span> Manager Login
               </button>
@@ -91,7 +91,7 @@ window.Zoosh.Views.Login = {
                 type="button" 
                 class="btn btn-secondary btn-sm" 
                 style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;"
-                onclick="window.Zoosh.Views.Login.quickFill('visitor', 'ChangeThisVisitorPassword')"
+                onclick="window.Zoosh.Views.Login.quickFill('zooshadmin1234', 'zooshadmin098')"
               >
                 <span>👁️</span> Visitor Login
               </button>
@@ -101,10 +101,10 @@ window.Zoosh.Views.Login = {
           <!-- Role Permissions Guide -->
           <div class="login-role-guide">
             <div class="role-pill manager-pill">
-              <strong>Manager:</strong> Full write control &bull; Client, Project &amp; Furniture CRUD &bull; Reallocations &bull; Admin
+              <strong>Manager (zooshadmin):</strong> Full write control &bull; Client, Project &amp; Furniture CRUD &bull; Reallocations &bull; Admin
             </div>
             <div class="role-pill visitor-pill">
-              <strong>Visitor:</strong> Read-only access &bull; Overview &bull; Live Gantt &bull; Capacity &bull; Reports
+              <strong>Visitor (zooshadmin1234):</strong> Read-only access &bull; Overview &bull; Live Gantt &bull; Capacity &bull; Reports
             </div>
           </div>
         </div>

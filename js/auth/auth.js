@@ -11,13 +11,13 @@
 (function() {
   'use strict';
 
-  const AUTH_STORAGE_KEY = 'ZOOSH_AUTH_V1';
-  const SESSION_STORAGE_KEY = 'ZOOSH_SESSION_V1';
+  const AUTH_STORAGE_KEY = 'ZOOSH_AUTH_V2';
+  const SESSION_STORAGE_KEY = 'ZOOSH_SESSION_V2';
   const SALT = 'zoosh_salt_2026';
 
   // Precomputed SHA-256 hashes with SALT for default accounts
-  const DEFAULT_MANAGER_HASH = 'd29d4f527297423a65e023d324c385000414421c47c0f361fb1a503e664645d4'; // ChangeThisManagerPassword
-  const DEFAULT_VISITOR_HASH = '96f00a847d98305d8d78204c38b8f10eb267f9a768e50905ad52d7cc3bf0cc24'; // ChangeThisVisitorPassword
+  const DEFAULT_MANAGER_HASH = '716d19c6d03204a0a5ff1d843ab699706a8699d1f13293599ba9a898f59afe81'; // zooshadmin1234
+  const DEFAULT_VISITOR_HASH = '0e12124f9ce52b88e2121f8976841b050d78c01119e6416e3fd6a019042b365f'; // zooshadmin098
 
   function getStorage(type = 'local') {
     if (type === 'session' && typeof sessionStorage !== 'undefined') return sessionStorage;
@@ -58,12 +58,12 @@
 
   function getDefaultAuthStore() {
     return {
-      version: 1,
+      version: 2,
       users: [
         {
           id: 'usr_manager',
-          username: 'manager',
-          displayName: 'Factory Manager',
+          username: 'zooshadmin',
+          displayName: 'Factory Manager (Admin)',
           role: 'MANAGER',
           passwordHash: DEFAULT_MANAGER_HASH,
           active: true,
@@ -71,7 +71,7 @@
         },
         {
           id: 'usr_visitor',
-          username: 'visitor',
+          username: 'zooshadmin1234',
           displayName: 'Factory Visitor',
           role: 'VISITOR',
           passwordHash: DEFAULT_VISITOR_HASH,
@@ -92,6 +92,40 @@
       if (!authData) {
         authData = JSON.stringify(getDefaultAuthStore());
         localStorage.setItem(AUTH_STORAGE_KEY, authData);
+      } else {
+        try {
+          const parsed = JSON.parse(authData);
+          let modified = false;
+          // Ensure zooshadmin exists
+          if (!parsed.users.find(u => u.username === 'zooshadmin')) {
+            parsed.users.push({
+              id: 'usr_manager',
+              username: 'zooshadmin',
+              displayName: 'Factory Manager (Admin)',
+              role: 'MANAGER',
+              passwordHash: DEFAULT_MANAGER_HASH,
+              active: true,
+              createdAt: '2026-09-28'
+            });
+            modified = true;
+          }
+          // Ensure zooshadmin1234 exists
+          if (!parsed.users.find(u => u.username === 'zooshadmin1234')) {
+            parsed.users.push({
+              id: 'usr_visitor',
+              username: 'zooshadmin1234',
+              displayName: 'Factory Visitor',
+              role: 'VISITOR',
+              passwordHash: DEFAULT_VISITOR_HASH,
+              active: true,
+              createdAt: '2026-09-28'
+            });
+            modified = true;
+          }
+          if (modified) {
+            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(parsed));
+          }
+        } catch (e) {}
       }
 
       // Check for active session in sessionStorage first, then localStorage
