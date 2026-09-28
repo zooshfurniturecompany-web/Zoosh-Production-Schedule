@@ -10,9 +10,9 @@ window.Zoosh.Config = {
   VERSION: '1.0.0',
   STORAGE_KEY: 'ZOOSH_PRODUCTION_V1_STORE',
   
-  // Optional Cloud Sync via Supabase (can also be configured via in-app UI)
-  SUPABASE_URL: '',
-  SUPABASE_ANON_KEY: '',
+  // Cloud Sync via Supabase (shared across all devices)
+  SUPABASE_URL: 'https://playozyzrndsjiayvpwx.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYXlvenl6cm5kc2ppYXl2cHd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1Nzg4MzgsImV4cCI6MjEwNjE1NDgzOH0.t5YUHklTi1SirpcWk15HOl03jw6rt9PhvOH9r468ZfU',
   
   // Base factory calendar settings
   CURRENT_DATE: '2026-09-28', // Monday, 28 September 2026
