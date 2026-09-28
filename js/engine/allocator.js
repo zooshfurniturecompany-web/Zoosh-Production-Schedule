@@ -65,12 +65,6 @@ window.Zoosh.Allocator = {
       const totalPendingDays = assignedProcesses.reduce((sum, p) => sum + (parseFloat(p.durationDays) || 1), 0);
 
       // Scoring criteria: Lower penalty is better!
-      // Penalty weights:
-      // - Leave overlap: +1000 penalty (disqualifying if others exist)
-      // - Secondary skill instead of primary: +20 penalty
-      // - Total pending days: +10 penalty per day
-      // - Seniority / Joining Date: -0.5 points per month of experience
-      // - Overtime availability: -5 bonus points
       let penalty = 0;
       if (hasLeaveOverlap) penalty += 1000;
       if (emp.department !== department) penalty += 20;
@@ -122,8 +116,9 @@ window.Zoosh.Allocator = {
     const proc = (state.processes || []).find(p => p.id === processId);
     if (!proc) return null;
 
-    const srl = (state.srls || []).find(s => s.id === proc.srlId);
+    const srl = (state.srls || state.furniture || []).find(s => s.id === (proc.furnitureId || proc.srlId));
     const project = (state.projects || []).find(p => p.id === proc.projectId);
+    const client = project ? (state.clients || []).find(c => c.id === project.clientId) : null;
     const currentEmp = (state.employees || []).find(e => e.id === proc.employeeId);
 
     // Suggest replacement excluding current employee
@@ -134,11 +129,18 @@ window.Zoosh.Allocator = {
       proc.employeeId
     );
 
+    const clientSrl = client ? client.srl : (project ? project.clientSrl : (srl ? srl.srlNumber : '—'));
+    const clientName = client ? client.name : (project ? project.clientName : 'Client');
+    const furnitureName = srl ? (srl.furnitureName || srl.name) : 'Furniture';
+
     return {
       processId: proc.id,
+      furnitureId: proc.furnitureId || proc.srlId,
       srlId: proc.srlId,
-      srlNumber: srl ? srl.srlNumber : '—',
-      furnitureName: srl ? srl.furnitureName : 'Furniture',
+      srlNumber: clientSrl,
+      clientSrl: clientSrl,
+      clientName: clientName,
+      furnitureName: furnitureName,
       department: proc.department,
       durationDays: proc.durationDays,
       currentEmployee: currentEmp,
@@ -158,6 +160,10 @@ window.Zoosh.Allocator = {
    * @returns {Object} result
    */
   applyReallocation(processId, newEmployeeId) {
+    if (window.Zoosh.Auth && typeof window.Zoosh.Auth.assertPermission === 'function') {
+      window.Zoosh.Auth.assertPermission('reallocate');
+    }
+
     const state = window.Zoosh.State.getState();
     const proc = (state.processes || []).find(p => p.id === processId);
     if (!proc) return { success: false, message: 'Process not found' };

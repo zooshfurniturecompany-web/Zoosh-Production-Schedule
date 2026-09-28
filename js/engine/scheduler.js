@@ -3,6 +3,19 @@
  * Implements forward-pass scheduling, strict process dependencies,
  * resource constraint leveling, leave collision detection,
  * and fixed delivery deadline tracking.
+ * 
+ * Hierarchy:
+ * CLIENT / SRL (SRL is client/customer short-form identifier)
+ *   ↓
+ * PROJECT
+ *   ↓
+ * FURNITURE ITEMS (NO SRL numbers on furniture items!)
+ *   ↓
+ * PRODUCTION PROCESSES
+ *   ↓
+ * EMPLOYEE
+ *   ↓
+ * SCHEDULE
  */
 window.Zoosh = window.Zoosh || {};
 
@@ -19,9 +32,17 @@ window.Zoosh.Scheduler = {
     const config = window.Zoosh.Config;
     const currentDate = cloned.currentDate || config.CURRENT_DATE;
 
+    // Ensure synchronized furniture / srls aliases
+    if (!cloned.srls && cloned.furniture) {
+      cloned.srls = cloned.furniture;
+    } else if (!cloned.furniture && cloned.srls) {
+      cloned.furniture = cloned.srls;
+    }
+
     // 1. Build lookup tables
     const employeesMap = new Map((cloned.employees || []).map(e => [e.id, e]));
-    const srlsMap = new Map((cloned.srls || []).map(s => [s.id, s]));
+    const clientsMap = new Map((cloned.clients || []).map(c => [c.id, c]));
+    const srlsMap = new Map((cloned.srls || cloned.furniture || []).map(s => [s.id, s]));
     const projectsMap = new Map((cloned.projects || []).map(p => [p.id, p]));
 
     // 2. Build employee leave calendar
@@ -54,34 +75,39 @@ window.Zoosh.Scheduler = {
       employeeDailyHours.get(empId).set(dateStr, current + hours);
     };
 
-    // 4. Process each SRL in topological/sequence order
+    // 4. Process each Furniture Item / SRL in topological/sequence order
     const leaveConflicts = [];
 
-    // Group processes by SRL and sort by sequence
+    // Group processes by furniture/srl and sort by sequence
     const srlProcessesMap = new Map();
     (cloned.processes || []).forEach(proc => {
-      if (!srlProcessesMap.has(proc.srlId)) {
-        srlProcessesMap.set(proc.srlId, []);
+      const parentId = proc.furnitureId || proc.srlId;
+      if (!srlProcessesMap.has(parentId)) {
+        srlProcessesMap.set(parentId, []);
       }
-      srlProcessesMap.get(proc.srlId).push(proc);
+      srlProcessesMap.get(parentId).push(proc);
     });
 
-    // Schedule each SRL's processes sequentially
-    cloned.srls.forEach(srl => {
+    // Schedule each item's processes sequentially
+    (cloned.srls || []).forEach(srl => {
       const procs = srlProcessesMap.get(srl.id) || [];
       procs.sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
 
       let nextAvailableStart = srl.startDate || currentDate;
+
+      const proj = projectsMap.get(srl.projectId);
+      const client = proj ? clientsMap.get(proj.clientId) : null;
+      const clientSrl = client ? client.srl : (proj ? proj.clientSrl : (srl.srlNumber || '—'));
+      const clientName = client ? client.name : (proj ? proj.clientName : 'Client');
+      const furnitureName = srl.furnitureName || srl.name || 'Furniture Item';
 
       procs.forEach((proc, idx) => {
         const emp = employeesMap.get(proc.employeeId);
         const duration = parseFloat(proc.durationDays) || 1;
         const leaveDates = emp && employeeLeavesMap.has(emp.id) ? Array.from(employeeLeavesMap.get(emp.id)) : [];
 
-        // Check if employee is on leave on the proposed start date
+        // Check earliest working date respecting Sundays
         let searchDate = calendar.parseDate(nextAvailableStart);
-        
-        // Find earliest start date respecting Sunday non-working and prior employee queue
         while (calendar.isSunday(searchDate)) {
           searchDate.setDate(searchDate.getDate() + 1);
         }
@@ -104,9 +130,13 @@ window.Zoosh.Scheduler = {
           proc.hasLeaveConflict = true;
           leaveConflicts.push({
             processId: proc.id,
+            furnitureId: srl.id,
             srlId: srl.id,
-            srlNumber: srl.srlNumber,
-            furnitureName: srl.furnitureName,
+            srlNumber: clientSrl,
+            clientSrl: clientSrl,
+            clientName: clientName,
+            furnitureName: furnitureName,
+            projectName: proj ? proj.name : '—',
             department: proc.department,
             employeeId: proc.employeeId,
             employeeName: emp ? emp.name : 'Unknown'
@@ -128,12 +158,9 @@ window.Zoosh.Scheduler = {
           });
         }
 
-        // STRICT DEPENDENCY: Downstream process CANNOT start before this process finishes
-        // If this process finishes at 17:00, the next process starts the next working morning.
-        // If this process finishes at mid-day (e.g. 13:00), the next process can start at 13:00 on that same day!
+        // Downstream dependency chaining
         const lastSeg = span.scheduledSegments[span.scheduledSegments.length - 1];
         if (lastSeg && lastSeg.endHour >= 17) {
-          // Next day
           let nextD = calendar.parseDate(lastSeg.dateStr);
           nextD.setDate(nextD.getDate() + 1);
           while (calendar.isSunday(nextD)) {
@@ -147,7 +174,7 @@ window.Zoosh.Scheduler = {
         }
       });
 
-      // Compute SRL finish date & progress
+      // Compute Furniture finish date & progress
       if (procs.length > 0) {
         const lastProc = procs[procs.length - 1];
         srl.expectedFinishDate = lastProc.calculatedEndDate;
@@ -164,8 +191,8 @@ window.Zoosh.Scheduler = {
     });
 
     // 5. Evaluate Projects against Fixed Delivery Deadlines
-    cloned.projects.forEach(project => {
-      const projSrls = cloned.srls.filter(s => s.projectId === project.id);
+    (cloned.projects || []).forEach(project => {
+      const projSrls = (cloned.srls || []).filter(s => s.projectId === project.id);
       
       if (projSrls.length === 0) {
         project.projectedFinishDate = project.confirmedDate;
@@ -174,7 +201,6 @@ window.Zoosh.Scheduler = {
         return;
       }
 
-      // Max finish date among all SRLs
       let maxFinish = projSrls[0].expectedFinishDate || project.confirmedDate;
       projSrls.forEach(s => {
         if (s.expectedFinishDate && s.expectedFinishDate > maxFinish) {
@@ -184,13 +210,11 @@ window.Zoosh.Scheduler = {
 
       project.projectedFinishDate = maxFinish;
 
-      // Completion percent based on completed SRLs
       const completedCount = projSrls.filter(s => s.status === 'COMPLETED').length;
       project.completedSrlCount = completedCount;
       project.totalSrlCount = projSrls.length;
       project.completionPercent = Math.round((completedCount / projSrls.length) * 100);
 
-      // Compare projected finish against FIXED deadline
       if (!project.deliveryDeadline) {
         project.deadlineStatus = 'ON_SCHEDULE';
         return;
@@ -199,11 +223,9 @@ window.Zoosh.Scheduler = {
       const daysDiff = calendar.diffCalendarDays(project.projectedFinishDate, project.deliveryDeadline);
       
       if (daysDiff < 0) {
-        // Projected finish is AFTER deadline
         project.deadlineStatus = 'DELAYED';
         project.daysOverdue = Math.abs(daysDiff);
       } else if (daysDiff <= config.DEADLINE_AT_RISK_MARGIN_DAYS) {
-        // Within 2 days of deadline
         project.deadlineStatus = 'AT_RISK';
         project.daysBuffer = daysDiff;
       } else {
@@ -212,14 +234,18 @@ window.Zoosh.Scheduler = {
       }
     });
 
-    // 6. Identify Today's Production Tasks (tasks that have segments on currentDate)
+    // 6. Identify Today's Production Tasks
     const todayTasks = [];
-    cloned.processes.forEach(proc => {
+    (cloned.processes || []).forEach(proc => {
       const todaySeg = (proc.scheduledSegments || []).find(s => s.dateStr === currentDate);
       if (todaySeg) {
-        const srl = srlsMap.get(proc.srlId);
+        const srl = srlsMap.get(proc.furnitureId || proc.srlId);
         const emp = employeesMap.get(proc.employeeId);
         const proj = srl ? projectsMap.get(srl.projectId) : null;
+        const client = proj ? clientsMap.get(proj.clientId) : null;
+        const clientSrl = client ? client.srl : (proj ? proj.clientSrl : (srl ? srl.srlNumber : '—'));
+        const clientName = client ? client.name : (proj ? proj.clientName : 'Client');
+        const furnitureName = srl ? (srl.furnitureName || srl.name) : 'Furniture';
 
         const startH = Math.floor(todaySeg.startHour);
         const startM = Math.round((todaySeg.startHour - startH) * 60);
@@ -230,9 +256,12 @@ window.Zoosh.Scheduler = {
 
         todayTasks.push({
           processId: proc.id,
+          furnitureId: srl ? srl.id : proc.srlId,
           srlId: proc.srlId,
-          srlNumber: srl ? srl.srlNumber : '—',
-          furnitureName: srl ? srl.furnitureName : 'Furniture',
+          srlNumber: clientSrl,
+          clientSrl: clientSrl,
+          clientName: clientName,
+          furnitureName: furnitureName,
           department: proc.department,
           employeeId: proc.employeeId,
           employeeName: emp ? emp.name : 'Unassigned',
@@ -250,12 +279,14 @@ window.Zoosh.Scheduler = {
     const alerts = [];
 
     // Alert 1: Project deadline warnings
-    cloned.projects.forEach(p => {
+    (cloned.projects || []).forEach(p => {
+      const client = clientsMap.get(p.clientId);
+      const srlTag = client ? ` (Client: ${client.name}, SRL ${client.srl})` : '';
       if (p.deadlineStatus === 'DELAYED') {
         alerts.push({
           id: `alert_proj_delayed_${p.id}`,
           type: 'danger',
-          title: `Project ${p.name} is DELAYED`,
+          title: `Project ${p.name}${srlTag} is DELAYED`,
           message: `Projected finish is ${p.projectedFinishDate}, which is ${p.daysOverdue} day(s) past the fixed delivery deadline (${p.deliveryDeadline}).`,
           actionType: 'VIEW_PROJECT',
           actionLabel: 'View Project',
@@ -265,7 +296,7 @@ window.Zoosh.Scheduler = {
         alerts.push({
           id: `alert_proj_risk_${p.id}`,
           type: 'warning',
-          title: `Project ${p.name} may cross its deadline`,
+          title: `Project ${p.name}${srlTag} may cross its deadline`,
           message: `Delivery deadline is ${p.deliveryDeadline}. Buffer is only ${p.daysBuffer} day(s).`,
           actionType: 'VIEW_PROJECT',
           actionLabel: 'View Project',
@@ -279,8 +310,8 @@ window.Zoosh.Scheduler = {
       alerts.push({
         id: `alert_leave_${conf.processId}`,
         type: 'warning',
-        title: `${conf.employeeName} has approved leave during scheduled work`,
-        message: `Scheduled on SRL ${conf.srlNumber} (${conf.furnitureName} - ${conf.department}). Action required: Reallocate to another employee.`,
+        title: `${conf.employeeName} is on leave during scheduled work`,
+        message: `Affected Item: ${conf.furnitureName} • Client: ${conf.clientName} (SRL ${conf.srlNumber}) • Project: ${conf.projectName} • Department: ${conf.department}. Reallocation required.`,
         actionType: 'REALLOCATE_WORK',
         actionLabel: 'Reallocate Work',
         targetId: conf.processId,
@@ -291,13 +322,12 @@ window.Zoosh.Scheduler = {
     // Alert 3: Department bottleneck check
     const deptWorkload = {};
     Object.keys(config.DEPARTMENTS).forEach(d => { deptWorkload[d] = 0; });
-    cloned.processes.forEach(p => {
+    (cloned.processes || []).forEach(p => {
       if (p.status !== 'COMPLETED') {
         deptWorkload[p.department] = (deptWorkload[p.department] || 0) + (parseFloat(p.durationDays) || 1);
       }
     });
 
-    // High workload threshold: e.g. Polish > 7 days total pending queue
     if (deptWorkload['Polish'] >= 6) {
       alerts.push({
         id: 'alert_dept_polish',
@@ -310,7 +340,6 @@ window.Zoosh.Scheduler = {
       });
     }
 
-    // Attach computed views directly to state
     cloned.computed = {
       leaveConflicts,
       todayTasks,

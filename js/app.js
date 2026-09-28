@@ -1,14 +1,68 @@
 /**
  * Application Controller & Router
  * Modern Factory Control Room
+ * 
+ * Features:
+ * - Authentication gateway (blocks app access if unauthenticated)
+ * - Role-based permissions enforcement
+ * - User session profile in headers and sidebar
+ * - Dynamic view router including Settings & User Management
  */
 window.Zoosh = window.Zoosh || {};
 
 window.Zoosh.App = {
   currentView: 'overview',
+  isBooted: false,
 
   init() {
     console.log('Initializing ZOOSH Production Scheduling System...');
+
+    // 1. Initialize Authentication module
+    if (window.Zoosh.Auth) {
+      window.Zoosh.Auth.init();
+    }
+
+    // 2. Check Authentication Gateway
+    if (!window.Zoosh.Auth || !window.Zoosh.Auth.isAuthenticated()) {
+      this.showLoginScreen();
+      return;
+    }
+
+    // 3. User is authenticated, boot the application
+    this.bootApp();
+  },
+
+  showLoginScreen() {
+    const appEl = document.getElementById('app');
+    const loginContainer = document.getElementById('login-container');
+    if (appEl) appEl.style.display = 'none';
+    if (loginContainer) {
+      loginContainer.style.display = 'block';
+      if (window.Zoosh.Views.Login) {
+        window.Zoosh.Views.Login.render(loginContainer);
+      }
+    }
+  },
+
+  onLoginSuccess() {
+    const loginContainer = document.getElementById('login-container');
+    const appEl = document.getElementById('app');
+    if (loginContainer) loginContainer.style.display = 'none';
+    if (appEl) appEl.style.display = 'flex';
+
+    this.bootApp();
+  },
+
+  logout() {
+    if (window.Zoosh.Auth) {
+      window.Zoosh.Auth.logout();
+    }
+    this.showLoginScreen();
+    this.showToast('You have been logged out.');
+  },
+
+  bootApp() {
+    const session = window.Zoosh.Auth ? window.Zoosh.Auth.getSession() : null;
 
     // 1. Initialize State & Persistence
     window.Zoosh.State.init();
@@ -24,18 +78,90 @@ window.Zoosh.App = {
     // 4. Setup Navigation Event Listeners
     this.setupNavigation();
 
-    // 4. Setup Toolbar & Import/Export Actions
+    // 5. Setup Toolbar & Import/Export Actions
     this.setupToolbar();
 
-    // 5. Subscribe to State Changes
+    // 6. Mount User Profile Badges in Topbars & Sidebar
+    this.updateUserBadges(session);
+
+    // 7. Subscribe to State Changes
     window.Zoosh.State.subscribe((state) => {
       this.renderCurrentView();
       this.updateTopbarBadges(state);
     });
 
-    // 6. Initial Render
-    this.navigateTo('overview');
+    // 8. Initial Render
+    this.navigateTo(this.currentView || 'overview');
     this.updateTopbarBadges(window.Zoosh.State.getState());
+    this.isBooted = true;
+  },
+
+  updateUserBadges(user) {
+    if (!user) return;
+
+    // Desktop Topbar User Badge
+    const topbarProfile = document.getElementById('user-topbar-profile');
+    if (topbarProfile) {
+      topbarProfile.innerHTML = `
+        <div class="user-avatar-badge">${user.username.charAt(0).toUpperCase()}</div>
+        <div style="font-size: 12px; line-height: 1.2;">
+          <strong style="color: var(--text-main); display: block;">${user.displayName || user.username}</strong>
+          <span class="badge ${user.role === 'MANAGER' ? 'badge-primary' : 'badge-upholstery'}" style="font-size: 9.5px; padding: 1px 5px;">
+            ${user.role}
+          </span>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 11px; margin-left: 4px;" onclick="window.Zoosh.App.navigateTo('settings')" title="Account Settings & Users">
+          ⚙️
+        </button>
+        <button class="btn-logout" style="color: #dc2626; border-color: #fecaca; background: #fff5f5; padding: 4px 8px;" onclick="window.Zoosh.App.logout()" title="Sign Out">
+          Logout
+        </button>
+      `;
+    }
+
+    // Mobile Topbar User Indicator
+    const mobileUserEl = document.getElementById('mobile-user-profile');
+    if (mobileUserEl) {
+      mobileUserEl.innerHTML = `
+        <button class="btn btn-secondary btn-sm" style="padding: 3px 6px; font-size: 10px;" onclick="window.Zoosh.App.navigateTo('settings')">
+          ⚙️
+        </button>
+        <button class="btn btn-secondary btn-sm" style="padding: 3px 6px; font-size: 10px; color: #dc2626;" onclick="window.Zoosh.App.logout()">
+          Logout
+        </button>
+      `;
+    }
+
+    // Sidebar User Session Card
+    const sidebarUserBadge = document.getElementById('sidebar-user-badge');
+    if (sidebarUserBadge) {
+      sidebarUserBadge.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 28px; height: 28px; border-radius: 50%; background: #ffffff; color: #0f172a; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center;">
+            ${user.username.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <div style="font-size: 12px; font-weight: 700; color: #ffffff;">${user.displayName || user.username}</div>
+            <div style="font-size: 10px; color: #94a3b8;">${user.role}</div>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="window.Zoosh.App.logout()">Logout</button>
+      `;
+    }
+
+    // Adjust visibility of write buttons in desktop topbar
+    const canCreate = window.Zoosh.Auth ? window.Zoosh.Auth.canCreate() : true;
+    const btnNewClient = document.getElementById('topbar-btn-new-client');
+    const btnNewProj = document.getElementById('topbar-btn-new-proj');
+    const btnAddFurn = document.getElementById('topbar-btn-add-furn');
+    const mobileAddFurn = document.getElementById('mobile-btn-add-furniture');
+    const sidebarControls = document.getElementById('sidebar-data-controls');
+
+    if (btnNewClient) btnNewClient.style.display = canCreate ? 'inline-flex' : 'none';
+    if (btnNewProj) btnNewProj.style.display = canCreate ? 'inline-flex' : 'none';
+    if (btnAddFurn) btnAddFurn.style.display = canCreate ? 'inline-flex' : 'none';
+    if (mobileAddFurn) mobileAddFurn.style.display = canCreate ? 'inline-flex' : 'none';
+    if (sidebarControls) sidebarControls.style.display = canCreate ? 'block' : 'none';
   },
 
   setupNavigation() {
@@ -52,7 +178,6 @@ window.Zoosh.App = {
   },
 
   setupToolbar() {
-    // Hidden file input for JSON import
     const fileInput = document.getElementById('import-file-input');
     if (fileInput) {
       fileInput.addEventListener('change', (e) => {
@@ -60,11 +185,15 @@ window.Zoosh.App = {
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (event) => {
-          const result = window.Zoosh.State.importJson(event.target.result);
-          if (result.success) {
-            this.showToast('Data imported successfully!');
-          } else {
-            alert('Import failed: ' + result.error);
+          try {
+            const result = window.Zoosh.State.importJson(event.target.result);
+            if (result.success) {
+              this.showToast('Data imported successfully!');
+            } else {
+              alert('Import failed: ' + result.error);
+            }
+          } catch (err) {
+            alert('Import error: ' + err.message);
           }
           fileInput.value = '';
         };
@@ -100,12 +229,13 @@ window.Zoosh.App = {
     // Update Mobile Header Title
     const viewTitles = {
       overview: 'Overview',
-      projects: 'Projects',
+      projects: 'Clients & Projects',
       schedule: 'Production Schedule',
       team: 'Team & Craftspeople',
       processes: 'Process Flow Types',
-      manpower: 'Manpower & Leaves',
-      reports: 'Factory Reports'
+      manpower: 'Manpower & Capacity',
+      reports: 'Factory Reports',
+      settings: 'Settings & Admin'
     };
     this.updateMobileHeader(viewTitles[viewName] || 'Zoosh Production', false);
 
@@ -156,6 +286,9 @@ window.Zoosh.App = {
       case 'reports':
         window.Zoosh.Views.Reports.render(container);
         break;
+      case 'settings':
+        window.Zoosh.Views.Settings.render(container);
+        break;
       default:
         window.Zoosh.Views.Overview.render(container);
     }
@@ -163,7 +296,7 @@ window.Zoosh.App = {
 
   updateTopbarBadges(state) {
     const alertsCountEl = document.getElementById('topbar-alerts-count');
-    if (alertsCountEl && state.computed) {
+    if (alertsCountEl && state && state.computed) {
       const alertCount = (state.computed.alerts || []).length;
       if (alertCount > 0) {
         alertsCountEl.textContent = `${alertCount} alert${alertCount > 1 ? 's' : ''}`;
@@ -210,28 +343,44 @@ window.Zoosh.App = {
     }, duration);
   },
 
-  // Toolbar Actions
+  // Toolbar Actions (RBAC protected)
   exportJson() {
-    window.Zoosh.State.exportJson();
-    this.showToast('Factory backup JSON downloaded.');
+    try {
+      window.Zoosh.State.exportJson();
+      this.showToast('Factory backup JSON downloaded.');
+    } catch (err) {
+      alert(err.message);
+    }
   },
 
   triggerImport() {
+    if (window.Zoosh.Auth && !window.Zoosh.Auth.canImport()) {
+      alert('Permission Denied: Only Managers can import data.');
+      return;
+    }
     const fileInput = document.getElementById('import-file-input');
     if (fileInput) fileInput.click();
   },
 
   resetDemoData() {
-    if (confirm('Reset all factory data back to original Demo Data?')) {
-      window.Zoosh.State.resetDemoData();
-      this.showToast('Reset to demo data.');
+    try {
+      if (confirm('Reset all factory data back to original Demo Data? User accounts will be preserved.')) {
+        window.Zoosh.State.resetDemoData();
+        this.showToast('Reset to demo data.');
+      }
+    } catch (err) {
+      alert(err.message);
     }
   },
 
   startFresh() {
-    if (confirm('Start fresh? This will clear all projects, furniture items, and tasks while keeping basic employee and process templates.')) {
-      window.Zoosh.State.startFresh();
-      this.showToast('Factory cleared for fresh production plan.');
+    try {
+      if (confirm('Start fresh? This will clear all clients, projects, furniture items, and schedules while keeping employees and user accounts.')) {
+        window.Zoosh.State.startFresh();
+        this.showToast('Factory cleared for fresh production plan.');
+      }
+    } catch (err) {
+      alert(err.message);
     }
   }
 };

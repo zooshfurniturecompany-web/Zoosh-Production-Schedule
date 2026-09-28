@@ -13,6 +13,10 @@ window.Zoosh.Views.Manpower = {
     const employeesMap = new Map((state.employees || []).map(e => [e.id, e]));
     const records = state.manpowerRecords || [];
     const leaveConflicts = (state.computed && state.computed.leaveConflicts) || [];
+    const auth = window.Zoosh.Auth;
+    const canCreate = auth ? auth.canCreate() : true;
+    const canEdit = auth ? auth.canEdit() : true;
+    const canDelete = auth ? auth.canDelete() : true;
 
     container.innerHTML = `
       <div class="view-header">
@@ -20,9 +24,13 @@ window.Zoosh.Views.Manpower = {
           <h2 class="view-header-title">Manpower &amp; Capacity Control</h2>
           <div class="view-header-subtitle">Floor capacity, leave planning, overtime authorization, and bottleneck resolution</div>
         </div>
-        <button class="btn btn-primary" onclick="window.Zoosh.Views.Manpower.openAddModal()">
-          <span>+</span> Add Capacity Event / Leave
-        </button>
+        ${canCreate ? `
+          <button class="btn btn-primary" onclick="window.Zoosh.Views.Manpower.openAddModal()">
+            <span>+</span> Add Capacity Event / Leave
+          </button>
+        ` : `
+          <span class="badge badge-upholstery">👁️ Visitor Read-Only</span>
+        `}
       </div>
 
       <!-- Active Conflicts Notice -->
@@ -43,11 +51,15 @@ window.Zoosh.Views.Manpower = {
             ${leaveConflicts.map(conf => `
               <div style="background: #ffffff; padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid #fde68a; display: flex; align-items: center; justify-content: space-between;">
                 <div style="font-size: 13px;">
-                  <strong>${conf.employeeName}</strong> unavailable &bull; Affected: <strong>SRL ${conf.srlNumber} (${conf.furnitureName} - ${conf.department})</strong>
+                  <strong>${conf.employeeName}</strong> unavailable &bull; Affected: <strong>${conf.furnitureName} (Client: ${conf.clientName}, SRL: ${conf.srlNumber}, Dept: ${conf.department})</strong>
                 </div>
-                <button class="btn btn-accent btn-sm" onclick="window.Zoosh.ReallocateModal.open('${conf.processId}')">
-                  Reallocate Work &rarr;
-                </button>
+                ${canEdit ? `
+                  <button class="btn btn-accent btn-sm" onclick="window.Zoosh.ReallocateModal.open('${conf.processId}')">
+                    Reallocate Work &rarr;
+                  </button>
+                ` : `
+                  <span class="badge badge-delayed">Reallocation Required</span>
+                `}
               </div>
             `).join('')}
           </div>
@@ -78,7 +90,7 @@ window.Zoosh.Views.Manpower = {
                     <th>Duration</th>
                     <th>Status</th>
                     <th>Notes / Reason</th>
-                    <th>Actions</th>
+                    ${canDelete ? '<th>Actions</th>' : ''}
                   </tr>
                 </thead>
                 <tbody>
@@ -115,18 +127,20 @@ window.Zoosh.Views.Manpower = {
                         <td style="font-size: 12.5px; color: var(--text-secondary); max-width: 250px;">
                           ${rec.notes || '—'}
                         </td>
-                        <td>
-                          <div style="display: flex; gap: 6px; align-items: center;">
-                            ${hasConflict ? `
-                              <button class="btn btn-sm btn-accent" onclick="window.Zoosh.Views.Manpower.reallocateForEmployee('${rec.employeeId}')">
-                                Reallocate
+                        ${canDelete ? `
+                          <td>
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                              ${hasConflict && canEdit ? `
+                                <button class="btn btn-sm btn-accent" onclick="window.Zoosh.Views.Manpower.reallocateForEmployee('${rec.employeeId}')">
+                                  Reallocate
+                                </button>
+                              ` : ''}
+                              <button class="btn btn-secondary btn-sm" style="color: #b91c1c;" onclick="window.Zoosh.Views.Manpower.deleteRecord('${rec.id}')">
+                                Delete
                               </button>
-                            ` : ''}
-                            <button class="btn btn-secondary btn-sm" style="color: #b91c1c;" onclick="window.Zoosh.Views.Manpower.deleteRecord('${rec.id}')">
-                              Delete
-                            </button>
-                          </div>
-                        </td>
+                            </div>
+                          </td>
+                        ` : ''}
                       </tr>
                     `;
                   }).join('')}
@@ -140,6 +154,10 @@ window.Zoosh.Views.Manpower = {
   },
 
   reallocateForEmployee(empId) {
+    if (window.Zoosh.Auth && !window.Zoosh.Auth.canEdit()) {
+      alert('Permission Denied: Only Managers can reallocate work.');
+      return;
+    }
     const state = window.Zoosh.State.getState();
     const conf = (state.computed && state.computed.leaveConflicts || []).find(c => c.employeeId === empId);
     if (conf) {
@@ -150,6 +168,10 @@ window.Zoosh.Views.Manpower = {
   },
 
   openAddModal() {
+    if (window.Zoosh.Auth && !window.Zoosh.Auth.canCreate()) {
+      alert('Permission Denied: Only Managers can add manpower records.');
+      return;
+    }
     const state = window.Zoosh.State.getState();
     const config = window.Zoosh.Config;
     const title = 'Log Manpower / Capacity Event';
@@ -221,30 +243,41 @@ window.Zoosh.Views.Manpower = {
       return;
     }
 
-    window.Zoosh.State.addManpowerRecord({
-      employeeId,
-      action,
-      fromDate,
-      tillDate,
-      status,
-      notes
-    });
+    try {
+      window.Zoosh.State.addManpowerRecord({
+        employeeId,
+        action,
+        fromDate,
+        tillDate,
+        status,
+        notes
+      });
 
-    window.Zoosh.Modal.close();
+      window.Zoosh.Modal.close();
 
-    // Check if new leave caused conflict
-    const state = window.Zoosh.State.getState();
-    const conf = (state.computed && state.computed.leaveConflicts || []).find(c => c.employeeId === employeeId);
-    if (conf) {
-      setTimeout(() => {
-        window.Zoosh.ReallocateModal.open(conf.processId);
-      }, 200);
+      const state = window.Zoosh.State.getState();
+      const conf = (state.computed && state.computed.leaveConflicts || []).find(c => c.employeeId === employeeId);
+      if (conf) {
+        setTimeout(() => {
+          window.Zoosh.ReallocateModal.open(conf.processId);
+        }, 200);
+      }
+    } catch (err) {
+      alert(err.message);
     }
   },
 
   deleteRecord(id) {
+    if (window.Zoosh.Auth && !window.Zoosh.Auth.canDelete()) {
+      alert('Permission Denied: Only Managers can delete manpower records.');
+      return;
+    }
     if (confirm('Delete this manpower record? Schedule will automatically recalculate.')) {
-      window.Zoosh.State.deleteManpowerRecord(id);
+      try {
+        window.Zoosh.State.deleteManpowerRecord(id);
+      } catch (err) {
+        alert(err.message);
+      }
     }
   }
 };

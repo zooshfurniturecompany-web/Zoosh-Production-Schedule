@@ -1,18 +1,25 @@
 /**
  * One-Click Smart Work Reallocation Modal
  * Resolves leave collisions and resource bottlenecks with instant cascading recalculation.
+ * 
+ * SRL belongs strictly to the Client/Customer.
  */
 window.Zoosh = window.Zoosh || {};
 
 window.Zoosh.ReallocateModal = {
   open(processId) {
+    if (window.Zoosh.Auth && !window.Zoosh.Auth.canEdit()) {
+      alert('Permission Denied: Your role is Visitor (read-only) and cannot reallocate work.');
+      return;
+    }
+
     const plan = window.Zoosh.Allocator.getReallocationPlan(processId);
     if (!plan) {
       alert('Unable to load reallocation plan for this task.');
       return;
     }
 
-    const title = `Reallocate Production Work — SRL ${plan.srlNumber}`;
+    const title = `Reallocate Production Work — ${plan.furnitureName}`;
     const suggestedId = plan.replacementEmployee ? plan.replacementEmployee.id : '';
 
     const bodyHtml = `
@@ -29,8 +36,9 @@ window.Zoosh.ReallocateModal = {
         <div style="background: var(--bg-hover); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12.5px;">
             <div>
-              <span style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700;">Item:</span>
-              <div style="font-weight: 600; color: var(--text-main);">SRL ${plan.srlNumber} — ${plan.furnitureName}</div>
+              <span style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700;">Furniture Item:</span>
+              <div style="font-weight: 700; color: var(--text-main); font-size: 13.5px;">${plan.furnitureName}</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Client: ${plan.clientName} (SRL ${plan.srlNumber})</div>
             </div>
             <div>
               <span style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700;">Project:</span>
@@ -83,11 +91,15 @@ window.Zoosh.ReallocateModal = {
     if (!selectEl) return;
     const newEmployeeId = selectEl.value;
 
-    const result = window.Zoosh.Allocator.applyReallocation(processId, newEmployeeId);
-    window.Zoosh.Modal.close();
+    try {
+      const result = window.Zoosh.Allocator.applyReallocation(processId, newEmployeeId);
+      window.Zoosh.Modal.close();
 
-    if (window.Zoosh.App) {
-      window.Zoosh.App.showToast(result.message || 'Work reallocated successfully!');
+      if (window.Zoosh.App) {
+        window.Zoosh.App.showToast(result.message || 'Work reallocated successfully!');
+      }
+    } catch (err) {
+      alert(err.message);
     }
   }
 };

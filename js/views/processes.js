@@ -9,6 +9,9 @@ window.Zoosh.Views.Processes = {
   render(container) {
     const state = window.Zoosh.State.getState();
     const flowTypes = state.flowTypes || [];
+    const auth = window.Zoosh.Auth;
+    const canCreate = auth ? auth.canCreate() : true;
+    const canEdit = auth ? auth.canEdit() : true;
 
     container.innerHTML = `
       <div class="view-header">
@@ -16,9 +19,13 @@ window.Zoosh.Views.Processes = {
           <h2 class="view-header-title">Production Processes &amp; Flow Types</h2>
           <div class="view-header-subtitle">Standard manufacturing sequences &amp; process dependency rules</div>
         </div>
-        <button class="btn btn-primary" onclick="window.Zoosh.Views.Processes.openAddModal()">
-          <span>+</span> Add Flow Type
-        </button>
+        ${canCreate ? `
+          <button class="btn btn-primary" onclick="window.Zoosh.Views.Processes.openAddModal()">
+            <span>+</span> Add Flow Type
+          </button>
+        ` : `
+          <span class="badge badge-upholstery">👁️ Visitor Read-Only</span>
+        `}
       </div>
 
       <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 16px 20px; margin-bottom: 24px; border-left: 4px solid #0f172a;">
@@ -42,14 +49,16 @@ window.Zoosh.Views.Processes = {
                   <div style="font-size: 12px; color: var(--text-muted); margin-top: 1px;">${flow.description || ''}</div>
                 </div>
               </div>
-              <div style="display: flex; gap: 8px;">
-                <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Processes.openEditModal('${flow.id}')">
-                  Edit
-                </button>
-                <button class="btn btn-secondary btn-sm" style="color: #b91c1c;" onclick="window.Zoosh.Views.Processes.deleteFlow('${flow.id}')">
-                  Delete
-                </button>
-              </div>
+              ${canEdit ? `
+                <div style="display: flex; gap: 8px;">
+                  <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Processes.openEditModal('${flow.id}')">
+                    Edit
+                  </button>
+                  <button class="btn btn-secondary btn-sm" style="color: #b91c1c;" onclick="window.Zoosh.Views.Processes.deleteFlow('${flow.id}')">
+                    Delete
+                  </button>
+                </div>
+              ` : ''}
             </div>
             <div class="card-panel-body" style="padding: 16px 20px;">
               <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 10px;">
@@ -72,11 +81,19 @@ window.Zoosh.Views.Processes = {
   },
 
   openAddModal() {
+    if (window.Zoosh.Auth && !window.Zoosh.Auth.canCreate()) {
+      alert('Permission Denied: Only Managers can create flow types.');
+      return;
+    }
     this._editingSteps = ['Carpentry', 'Polish'];
     this._renderFlowBuilderModal('Add New Process Flow Type');
   },
 
   openEditModal(flowId) {
+    if (window.Zoosh.Auth && !window.Zoosh.Auth.canEdit()) {
+      alert('Permission Denied: Only Managers can edit flow types.');
+      return;
+    }
     const state = window.Zoosh.State.getState();
     const flow = (state.flowTypes || []).find(f => f.id === flowId);
     if (!flow) return;
@@ -156,6 +173,11 @@ window.Zoosh.Views.Processes = {
   },
 
   saveFlow() {
+    if (window.Zoosh.Auth && !window.Zoosh.Auth.canCreate() && !window.Zoosh.Auth.canEdit()) {
+      alert('Permission Denied.');
+      return;
+    }
+
     const code = document.getElementById('flow-code').value.trim();
     let name = document.getElementById('flow-name').value.trim();
 
@@ -171,31 +193,43 @@ window.Zoosh.Views.Processes = {
       name = this._editingSteps.join(' → ');
     }
 
-    if (this._editingFlowId) {
-      const state = window.Zoosh.State.getState();
-      const flow = state.flowTypes.find(f => f.id === this._editingFlowId);
-      if (flow) {
-        flow.code = code;
-        flow.name = name;
-        flow.steps = [...this._editingSteps];
-        window.Zoosh.State.persist();
-        window.Zoosh.State.notify();
+    try {
+      if (this._editingFlowId) {
+        const state = window.Zoosh.State.getState();
+        const flow = state.flowTypes.find(f => f.id === this._editingFlowId);
+        if (flow) {
+          flow.code = code;
+          flow.name = name;
+          flow.steps = [...this._editingSteps];
+          window.Zoosh.State.persist();
+          window.Zoosh.State.notify();
+        }
+        this._editingFlowId = null;
+      } else {
+        window.Zoosh.State.addFlowType({
+          code,
+          name,
+          steps: [...this._editingSteps]
+        });
       }
-      this._editingFlowId = null;
-    } else {
-      window.Zoosh.State.addFlowType({
-        code,
-        name,
-        steps: [...this._editingSteps]
-      });
-    }
 
-    window.Zoosh.Modal.close();
+      window.Zoosh.Modal.close();
+    } catch (err) {
+      alert(err.message);
+    }
   },
 
   deleteFlow(flowId) {
+    if (window.Zoosh.Auth && !window.Zoosh.Auth.canDelete()) {
+      alert('Permission Denied: Only Managers can delete flow types.');
+      return;
+    }
     if (confirm('Delete this flow type? Existing furniture already created with this flow will retain their sequence.')) {
-      window.Zoosh.State.deleteFlowType(flowId);
+      try {
+        window.Zoosh.State.deleteFlowType(flowId);
+      } catch (err) {
+        alert(err.message);
+      }
     }
   }
 };

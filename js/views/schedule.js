@@ -2,6 +2,9 @@
  * Production Schedule View — Real Calendar Gantt Engine
  * Proportional bars, People/Department/Project/Today views, Month/Week/Today zoom,
  * Sunday non-working background, Today indicator line.
+ * 
+ * Hierarchy:
+ * Client/SRL -> Project -> Furniture Item -> Process -> Craftsperson -> Schedule
  */
 window.Zoosh = window.Zoosh || {};
 window.Zoosh.Views = window.Zoosh.Views || {};
@@ -14,6 +17,7 @@ window.Zoosh.Views.Schedule = {
   centerDateStr: '2026-09-28',
 
   // Filters
+  filterClient: 'ALL',
   filterProject: 'ALL',
   filterDepartment: 'ALL',
   filterEmployee: 'ALL',
@@ -21,7 +25,6 @@ window.Zoosh.Views.Schedule = {
   searchQuery: '',
 
   render(container) {
-    // If on mobile viewport, default to 'today' view mode
     if (typeof window !== 'undefined' && window.innerWidth <= 768 && !this.mobileInitialized) {
       this.zoomMode = 'today';
       this.mobileInitialized = true;
@@ -30,6 +33,8 @@ window.Zoosh.Views.Schedule = {
     const calendar = window.Zoosh.Calendar;
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const currentMonthLabel = `${months[this.currentMonth]} ${this.currentYear}`;
+    const auth = window.Zoosh.Auth;
+    const canCreate = auth ? auth.canCreate() : true;
 
     container.innerHTML = `
       <!-- Desktop Header (>768px) -->
@@ -39,9 +44,15 @@ window.Zoosh.Views.Schedule = {
           <div class="view-header-subtitle">Real-time factory timeline &amp; forward process sequencing</div>
         </div>
         <div style="display: flex; gap: 8px;">
-          <button class="btn btn-primary" onclick="window.Zoosh.AddSrlWizard.open()">
-            <span>+</span> Add Furniture / SRL
-          </button>
+          ${canCreate ? `
+            <button class="btn btn-primary" onclick="window.Zoosh.AddFurnitureWizard.open()">
+              <span>+</span> Add Furniture
+            </button>
+          ` : `
+            <span class="badge badge-upholstery" style="align-self: center;">
+              👁️ Visitor Read-Only Mode
+            </span>
+          `}
         </div>
       </div>
 
@@ -115,9 +126,9 @@ window.Zoosh.Views.Schedule = {
           </div>
         </div>
 
-        <!-- Filters Bar (Shown on desktop or when week/month zoom active) -->
+        <!-- Filters Bar -->
         <div class="schedule-filters-bar ${this.zoomMode === 'today' ? 'desktop-only' : ''}">
-          <input type="text" class="search-input-box" placeholder="🔍 Search SRL, furniture, worker..." 
+          <input type="text" class="search-input-box" placeholder="🔍 Search Client, SRL, Furniture..." 
             value="${this.searchQuery}" 
             oninput="window.Zoosh.Views.Schedule.searchQuery = this.value; window.Zoosh.Views.Schedule.refreshGantt()" />
 
@@ -131,7 +142,6 @@ window.Zoosh.Views.Schedule = {
       </div>
     `;
 
-    // Auto-scroll horizontally towards today if month view
     setTimeout(() => {
       const todayPin = document.getElementById('gantt-today-line-el');
       const viewport = document.getElementById('gantt-viewport-el');
@@ -147,6 +157,13 @@ window.Zoosh.Views.Schedule = {
     const config = window.Zoosh.Config;
 
     return `
+      <select class="filter-select" onchange="window.Zoosh.Views.Schedule.filterClient = this.value; window.Zoosh.Views.Schedule.refreshGantt()">
+        <option value="ALL">All Clients / SRL</option>
+        ${(state.clients || []).map(c => `
+          <option value="${c.id}" ${this.filterClient === c.id ? 'selected' : ''}>SRL ${c.srl} — ${c.name}</option>
+        `).join('')}
+      </select>
+
       <select class="filter-select" onchange="window.Zoosh.Views.Schedule.filterProject = this.value; window.Zoosh.Views.Schedule.refreshGantt()">
         <option value="ALL">All Projects</option>
         ${(state.projects || []).map(p => `
@@ -190,20 +207,17 @@ window.Zoosh.Views.Schedule = {
       if (isMobile) {
         return this.renderMobileTodayChronological();
       }
-      // Single day, show hourly
       return this.renderHourlyTodayGrid();
     }
 
     const state = window.Zoosh.State.getState();
     const config = window.Zoosh.Config;
-    const dayWidth = this.zoomMode === 'week' ? 120 : 56; // pixel width per column
+    const dayWidth = this.zoomMode === 'week' ? 120 : 56;
     const totalWidth = days.length * dayWidth;
 
-    // Find today column index for vertical today line
     const todayIndex = days.findIndex(d => d.dateStr === config.CURRENT_DATE);
     const todayLeftPx = todayIndex !== -1 ? todayIndex * dayWidth + (dayWidth / 2) : -100;
 
-    // Build Rows depending on viewMode (people, department, project)
     const rows = this.getGanttRows(state);
 
     return `
@@ -216,7 +230,7 @@ window.Zoosh.Views.Schedule = {
         <!-- Header -->
         <div class="gantt-header-row">
           <div class="gantt-label-col-header">
-            ${this.viewMode === 'people' ? 'Employee & Dept' : (this.viewMode === 'department' ? 'Department' : 'Project / SRL')}
+            ${this.viewMode === 'people' ? 'Craftsperson' : (this.viewMode === 'department' ? 'Department' : 'Project / SRL')}
           </div>
           <div class="gantt-timeline-header" style="width: ${totalWidth}px;">
             ${days.map(d => `
@@ -257,12 +271,10 @@ window.Zoosh.Views.Schedule = {
       `;
     }
 
-    // Sort tasks chronologically by timeStr
     const sortedTasks = [...todayTasks].sort((a, b) => {
       return (a.timeStr || '').localeCompare(b.timeStr || '');
     });
 
-    // Group tasks by timeblock
     const timeBlocks = {};
     sortedTasks.forEach(task => {
       const blockKey = task.timeStr || 'Today Shift';
@@ -288,10 +300,11 @@ window.Zoosh.Views.Schedule = {
             </div>
             ${tasks.map(task => {
               const deptClass = `dept-${task.department.toLowerCase()}`;
+              const srlLabel = task.clientSrl ? `SRL ${task.clientSrl}` : (task.srlNumber ? `SRL ${task.srlNumber}` : '');
               return `
                 <div class="mobile-task-card ${deptClass}" onclick="window.Zoosh.Views.Schedule.inspectProcess('${task.processId}')">
                   <div class="mobile-task-card-header">
-                    <span class="mobile-task-srl">SRL ${task.srlNumber}</span>
+                    ${srlLabel ? `<span class="mobile-task-srl">${srlLabel}</span>` : '<span></span>'}
                     <span class="badge badge-${task.department.toLowerCase()}" style="font-size: 10px;">${task.department}</span>
                   </div>
 
@@ -313,9 +326,11 @@ window.Zoosh.Views.Schedule = {
                   ${task.hasLeaveConflict ? `
                     <div style="margin-top: 8px; padding: 6px 10px; background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-sm); font-size: 11.5px; color: #92400e; display: flex; align-items: center; justify-content: space-between;">
                       <span>⚠️ <strong>Leave Conflict:</strong> Worker on leave</span>
-                      <button style="border: none; background: transparent; color: #b45309; font-weight: 700; cursor: pointer; font-size: 11px;" onclick="event.stopPropagation(); window.Zoosh.ReallocateModal.open('${task.processId}')">
-                        Reallocate &rarr;
-                      </button>
+                      ${window.Zoosh.Auth && window.Zoosh.Auth.canEdit() ? `
+                        <button style="border: none; background: transparent; color: #b45309; font-weight: 700; cursor: pointer; font-size: 11px;" onclick="event.stopPropagation(); window.Zoosh.ReallocateModal.open('${task.processId}')">
+                          Reallocate &rarr;
+                        </button>
+                      ` : ''}
                     </div>
                   ` : ''}
                 </div>
@@ -335,8 +350,6 @@ window.Zoosh.Views.Schedule = {
     const hourColWidth = 100;
     const totalWidth = (hours.length - 1) * hourColWidth;
 
-    // Group tasks by employee
-    const employeesMap = new Map((state.employees || []).map(e => [e.id, e]));
     const activeEmployees = (state.employees || []).filter(e => e.active);
 
     return `
@@ -364,7 +377,7 @@ window.Zoosh.Views.Schedule = {
                   </div>
                 </div>
                 <div class="gantt-row-track" style="width: ${totalWidth}px;">
-                  ${hours.slice(0, -1).map(h => `
+                  ${hours.slice(0, -1).map(() => `
                     <div style="width: ${hourColWidth}px; border-right: 1px solid var(--border-subtle); height: 100%;"></div>
                   `).join('')}
 
@@ -377,12 +390,13 @@ window.Zoosh.Views.Schedule = {
                     const endH = seg.endHour || 17;
                     const leftPx = (startH - 9) * hourColWidth;
                     const widthPx = Math.max(30, (endH - startH) * hourColWidth - 4);
+                    const srlLabel = task.clientSrl ? `SRL ${task.clientSrl}` : (task.srlNumber ? `SRL ${task.srlNumber}` : '');
 
                     return `
                       <div class="gantt-bar gantt-bar-${task.department.toLowerCase()} ${task.hasLeaveConflict ? 'conflict' : ''}" 
                         style="left: ${leftPx}px; width: ${widthPx}px;"
                         onclick="window.Zoosh.Views.Schedule.inspectProcess('${task.processId}')">
-                        <span class="bar-title">SRL ${task.srlNumber} &bull; ${task.furnitureName}</span>
+                        <span class="bar-title">${srlLabel ? srlLabel + ' &bull; ' : ''}${task.furnitureName}</span>
                         <span class="bar-duration-badge">${task.hoursToday}h</span>
                       </div>
                     `;
@@ -398,16 +412,18 @@ window.Zoosh.Views.Schedule = {
 
   getGanttRows(state) {
     const processes = state.processes || [];
-    const srlsMap = new Map((state.srls || []).map(s => [s.id, s]));
+    const srlsMap = new Map((state.furniture || state.srls || []).map(s => [s.id, s]));
     const projectsMap = new Map((state.projects || []).map(p => [p.id, p]));
+    const clientsMap = new Map((state.clients || []).map(c => [c.id, c]));
     const employeesMap = new Map((state.employees || []).map(e => [e.id, e]));
 
-    // Filter processes by global filters
     const filteredProcesses = processes.filter(proc => {
-      const srl = srlsMap.get(proc.srlId);
+      const srl = srlsMap.get(proc.furnitureId || proc.srlId);
       const proj = srl ? projectsMap.get(srl.projectId) : null;
+      const client = proj ? clientsMap.get(proj.clientId) : null;
       const emp = employeesMap.get(proc.employeeId);
 
+      if (this.filterClient !== 'ALL' && (!proj || proj.clientId !== this.filterClient)) return false;
       if (this.filterProject !== 'ALL' && (!srl || srl.projectId !== this.filterProject)) return false;
       if (this.filterDepartment !== 'ALL' && proc.department !== this.filterDepartment) return false;
       if (this.filterEmployee !== 'ALL' && proc.employeeId !== this.filterEmployee) return false;
@@ -415,10 +431,11 @@ window.Zoosh.Views.Schedule = {
 
       if (this.searchQuery.trim()) {
         const q = this.searchQuery.toLowerCase();
-        const srlMatch = srl && (String(srl.srlNumber).includes(q) || srl.furnitureName.toLowerCase().includes(q));
+        const clientMatch = client && (String(client.srl).includes(q) || client.name.toLowerCase().includes(q));
+        const srlMatch = srl && ((srl.name || srl.furnitureName || '').toLowerCase().includes(q));
         const empMatch = emp && emp.name.toLowerCase().includes(q);
         const projMatch = proj && proj.name.toLowerCase().includes(q);
-        if (!srlMatch && !empMatch && !projMatch) return false;
+        if (!clientMatch && !srlMatch && !empMatch && !projMatch) return false;
       }
       return true;
     });
@@ -442,12 +459,16 @@ window.Zoosh.Views.Schedule = {
       }));
     } else if (this.viewMode === 'project') {
       return (state.projects || []).map(proj => {
-        const projSrls = (state.srls || []).filter(s => s.projectId === proj.id);
+        const projItems = (state.furniture || state.srls || []).filter(s => s.projectId === proj.id);
         const projProcs = filteredProcesses.filter(p => p.projectId === proj.id);
+        const client = clientsMap.get(proj.clientId);
+        const clientSrl = client ? client.srl : (proj.clientSrl || '—');
+        const clientName = client ? client.name : (proj.clientName || 'Client');
+
         return {
           id: proj.id,
           primaryLabel: proj.name,
-          secondaryLabel: `${proj.clientName} &bull; ${projSrls.length} SRLs`,
+          secondaryLabel: `${clientName} &bull; SRL ${clientSrl} &bull; ${projItems.length} Items`,
           badgeType: '',
           processes: projProcs
         };
@@ -460,10 +481,11 @@ window.Zoosh.Views.Schedule = {
   renderGanttRow(row, days, dayWidth, totalWidth) {
     const calendar = window.Zoosh.Calendar;
     const state = window.Zoosh.State.getState();
-    const srlsMap = new Map((state.srls || []).map(s => [s.id, s]));
+    const srlsMap = new Map((state.furniture || state.srls || []).map(s => [s.id, s]));
+    const projectsMap = new Map((state.projects || []).map(p => [p.id, p]));
+    const clientsMap = new Map((state.clients || []).map(c => [c.id, c]));
     const employeesMap = new Map((state.employees || []).map(e => [e.id, e]));
 
-    // First and last day in view
     const firstDateStr = days[0].dateStr;
     const lastDateStr = days[days.length - 1].dateStr;
 
@@ -477,35 +499,32 @@ window.Zoosh.Views.Schedule = {
         </div>
 
         <div class="gantt-row-track" style="width: ${totalWidth}px;">
-          <!-- Day grid cells -->
           ${days.map(d => `
             <div class="gantt-cell-bg ${d.isSunday ? 'sunday' : ''} ${d.isToday ? 'today' : ''}" style="width: ${dayWidth}px; min-width: ${dayWidth}px;"></div>
           `).join('')}
 
-          <!-- Process Bars -->
           ${row.processes.map(proc => {
-            const srl = srlsMap.get(proc.srlId);
+            const srl = srlsMap.get(proc.furnitureId || proc.srlId);
+            const proj = srl ? projectsMap.get(srl.projectId) : null;
+            const client = proj ? clientsMap.get(proj.clientId) : null;
+            const clientSrl = client ? client.srl : (proj ? proj.clientSrl : '—');
+            const clientName = client ? client.name : (proj ? proj.clientName : 'Client');
             const emp = employeesMap.get(proc.employeeId);
+            const itemName = srl ? (srl.name || srl.furnitureName) : 'Furniture';
             
-            // Check if process overlaps visible range
             if (proc.calculatedEndDate < firstDateStr || proc.calculatedStartDate > lastDateStr) {
               return '';
             }
 
-            // Calculate start pixel relative to days[0]
             const startDayIndex = days.findIndex(d => d.dateStr === proc.calculatedStartDate);
-            const endDayIndex = days.findIndex(d => d.dateStr === proc.calculatedEndDate);
-
             let leftPx = 0;
             if (startDayIndex !== -1) {
               leftPx = startDayIndex * dayWidth;
             } else {
-              // Started before view
               const diff = calendar.diffCalendarDays(firstDateStr, proc.calculatedStartDate);
               leftPx = diff * dayWidth;
             }
 
-            // Duration width: strictly proportional to duration and actual calendar span
             const spanDays = calendar.diffCalendarDays(proc.calculatedStartDate, proc.calculatedEndDate) + 1;
             const barWidth = Math.max(34, spanDays * dayWidth - 6);
 
@@ -515,10 +534,10 @@ window.Zoosh.Views.Schedule = {
                 onclick="window.Zoosh.Views.Schedule.inspectProcess('${proc.id}')">
                 
                 <span class="bar-title">
-                  <span style="font-size: 10px; background: rgba(0,0,0,0.1); padding: 1px 4px; border-radius: 2px;">
-                    SRL ${srl ? srl.srlNumber : ''}
+                  <span style="font-size: 10px; background: rgba(0,0,0,0.15); padding: 1px 4px; border-radius: 2px;">
+                    SRL ${clientSrl}
                   </span>
-                  ${srl ? srl.furnitureName : ''}
+                  ${itemName}
                 </span>
 
                 <span class="bar-duration-badge">
@@ -527,13 +546,13 @@ window.Zoosh.Views.Schedule = {
 
                 <!-- Hover Tooltip -->
                 <div class="gantt-tooltip">
-                  <div style="font-weight: 700; margin-bottom: 2px;">SRL ${srl ? srl.srlNumber : ''} — ${srl ? srl.furnitureName : ''}</div>
-                  <div style="color: #94a3b8; font-size: 11px;">Stage: ${proc.department} &bull; Worker: ${emp ? emp.name : 'Unassigned'}</div>
+                  <div style="font-weight: 700; margin-bottom: 2px;">${itemName} &bull; Client: ${clientName} (SRL ${clientSrl})</div>
+                  <div style="color: #94a3b8; font-size: 11px;">Stage: ${proc.department} &bull; Artisan: ${emp ? emp.name : 'Unassigned'}</div>
                   <div style="margin-top: 4px; font-family: var(--font-mono); font-size: 11px;">
                     ${calendar.formatDisplayDate(proc.calculatedStartDate, false, false)} &rarr; ${calendar.formatDisplayDate(proc.calculatedEndDate, false, false)}
                   </div>
                   <div style="font-size: 11px; margin-top: 2px;">Duration: ${proc.durationDays} working days (${(parseFloat(proc.durationDays) || 1) * 8}h)</div>
-                  ${proc.hasLeaveConflict ? '<div style="color: #f97316; font-weight: 700; margin-top: 4px;">⚠️ Worker has approved leave! Click to reallocate.</div>' : ''}
+                  ${proc.hasLeaveConflict ? '<div style="color: #f97316; font-weight: 700; margin-top: 4px;">⚠️ Artisan has approved leave! Click to reallocate.</div>' : ''}
                 </div>
               </div>
             `;
@@ -587,19 +606,25 @@ window.Zoosh.Views.Schedule = {
     const proc = (state.processes || []).find(p => p.id === procId);
     if (!proc) return;
 
-    const srl = (state.srls || []).find(s => s.id === proc.srlId);
+    const srl = (state.furniture || state.srls || []).find(s => s.id === (proc.furnitureId || proc.srlId));
     const emp = (state.employees || []).find(e => e.id === proc.employeeId);
     const project = (state.projects || []).find(p => p.id === proc.projectId);
+    const client = project ? (state.clients || []).find(c => c.id === project.clientId) : null;
+    const clientSrl = client ? client.srl : (project ? project.clientSrl : '—');
+    const clientName = client ? client.name : (project ? project.clientName : 'Client');
+    const itemName = srl ? (srl.name || srl.furnitureName) : 'Furniture Item';
+    const auth = window.Zoosh.Auth;
+    const canEdit = auth ? auth.canEdit() : true;
 
-    const title = `Process Stage: ${proc.department} (SRL ${srl ? srl.srlNumber : '—'})`;
+    const title = `Process Stage: ${proc.department} &bull; ${itemName}`;
     const bodyHtml = `
       <div style="display: flex; flex-direction: column; gap: 14px;">
         <div style="background: var(--bg-hover); padding: 12px 16px; border-radius: var(--radius-sm); border-left: 4px solid var(--accent-blue);">
-          <div style="font-weight: 700; font-size: 14px; color: var(--text-main);">
-            SRL ${srl ? srl.srlNumber : ''} — ${srl ? srl.furnitureName : 'Furniture'}
+          <div style="font-weight: 700; font-size: 15px; color: var(--text-main);">
+            ${itemName}
           </div>
-          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-            Project: <strong>${project ? project.name : '—'}</strong> (Deadline: ${project ? project.deliveryDeadline : '—'})
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            Client: <strong>${clientName}</strong> (SRL ${clientSrl}) &bull; Project: <strong>${project ? project.name : '—'}</strong>
           </div>
         </div>
 
@@ -609,7 +634,7 @@ window.Zoosh.Views.Schedule = {
             <div><span class="badge badge-${proc.department.toLowerCase()}">${proc.department}</span></div>
           </div>
           <div>
-            <span style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700;">Assigned Craftsperson</span>
+            <span style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700;">Assigned Artisan</span>
             <div style="font-weight: 600;">${emp ? emp.name : 'Unassigned'}</div>
           </div>
           <div>
@@ -622,49 +647,63 @@ window.Zoosh.Views.Schedule = {
           </div>
         </div>
 
-        <div class="form-group" style="margin-top: 8px;">
-          <label class="form-label">Duration (Days)</label>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <input type="number" step="0.25" min="0.25" max="30" class="form-input" id="inspect-proc-duration" value="${proc.durationDays}" />
-            <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">days</span>
+        ${canEdit ? `
+          <div class="form-group" style="margin-top: 8px;">
+            <label class="form-label">Duration (Days)</label>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <input type="number" step="0.25" min="0.25" max="30" class="form-input" id="inspect-proc-duration" value="${proc.durationDays}" />
+              <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">days</span>
+            </div>
           </div>
-        </div>
 
-        <div class="form-group">
-          <label class="form-label">Reassign Craftsperson</label>
-          <select id="inspect-proc-employee" class="form-select">
-            ${(state.employees || []).filter(e => e.active).map(e => `
-              <option value="${e.id}" ${e.id === proc.employeeId ? 'selected' : ''}>
-                ${e.name} (${e.department})
-              </option>
-            `).join('')}
-          </select>
-        </div>
+          <div class="form-group">
+            <label class="form-label">Reassign Craftsperson</label>
+            <select id="inspect-proc-employee" class="form-select">
+              ${(state.employees || []).filter(e => e.active).map(e => `
+                <option value="${e.id}" ${e.id === proc.employeeId ? 'selected' : ''}>
+                  ${e.name} (${e.department})
+                </option>
+              `).join('')}
+            </select>
+          </div>
+        ` : `
+          <div style="background: var(--bg-surface-secondary); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 12px; color: var(--text-muted);">
+            Duration: <strong>${proc.durationDays} days</strong> (${(parseFloat(proc.durationDays) || 1) * 8}h) &bull; Observer mode (read-only).
+          </div>
+        `}
 
         ${proc.hasLeaveConflict ? `
           <div style="background: #fffbeb; border: 1px solid #fde68a; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 12px; color: #92400e;">
-            ⚠️ <strong>Leave Conflict:</strong> Assigned employee has approved leave during this stage.
-            <div style="margin-top: 6px;">
-              <button class="btn btn-sm btn-secondary" style="color: #b45309;" onclick="window.Zoosh.Modal.close(); window.Zoosh.ReallocateModal.open('${proc.id}')">
-                Open Smart Reallocation Wizard &rarr;
-              </button>
-            </div>
+            ⚠️ <strong>Leave Conflict:</strong> Assigned artisan has approved leave during this stage.
+            ${canEdit ? `
+              <div style="margin-top: 6px;">
+                <button class="btn btn-sm btn-secondary" style="color: #b45309;" onclick="window.Zoosh.Modal.close(); window.Zoosh.ReallocateModal.open('${proc.id}')">
+                  Open Smart Reallocation Wizard &rarr;
+                </button>
+              </div>
+            ` : ''}
           </div>
         ` : ''}
       </div>
     `;
 
-    const footerHtml = `
+    const footerHtml = canEdit ? `
       <button class="btn btn-secondary" onclick="window.Zoosh.Modal.close()">Cancel</button>
       <button class="btn btn-primary" onclick="window.Zoosh.Views.Schedule.saveProcessEdit('${proc.id}')">
         Save &amp; Recalculate Schedule
       </button>
+    ` : `
+      <button class="btn btn-secondary" onclick="window.Zoosh.Modal.close()">Close</button>
     `;
 
     window.Zoosh.Modal.open(title, bodyHtml, footerHtml, '550px');
   },
 
   saveProcessEdit(procId) {
+    if (window.Zoosh.Auth) {
+      window.Zoosh.Auth.assertPermission('edit');
+    }
+
     const duration = parseFloat(document.getElementById('inspect-proc-duration').value) || 1;
     const employeeId = document.getElementById('inspect-proc-employee').value;
 

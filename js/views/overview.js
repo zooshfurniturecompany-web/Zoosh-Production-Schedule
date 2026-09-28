@@ -1,6 +1,8 @@
 /**
  * Overview / Director Dashboard View
  * Live KPIs, Today's Production, and Actionable Factory Alerts
+ * 
+ * SRL belongs strictly to Client / Customer
  */
 window.Zoosh = window.Zoosh || {};
 window.Zoosh.Views = window.Zoosh.Views || {};
@@ -13,6 +15,9 @@ window.Zoosh.Views.Overview = {
     const config = window.Zoosh.Config;
     const calendar = window.Zoosh.Calendar;
     const computed = state.computed || {};
+    const auth = window.Zoosh.Auth;
+    const canCreate = auth ? auth.canCreate() : true;
+    const isVisitor = auth ? auth.isVisitor() : false;
 
     const projects = state.projects || [];
     const totalProjects = projects.length;
@@ -30,18 +35,27 @@ window.Zoosh.Views.Overview = {
       <div class="view-header desktop-only">
         <div>
           <div style="font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted);">
-            Good morning &bull; Factory Director
+            Good morning &bull; ${auth && auth.getSession() ? auth.getSession().displayName : 'Factory Control'}
           </div>
           <h2 class="view-header-title" style="margin-top: 2px;">Production Overview</h2>
           <div class="view-header-subtitle">${displayDateStr}</div>
         </div>
         <div style="display: flex; gap: 10px;">
-          <button class="btn btn-primary" onclick="window.Zoosh.AddSrlWizard.open()">
-            <span>+</span> Add Furniture / SRL
-          </button>
-          <button class="btn btn-secondary" onclick="window.Zoosh.Views.Projects.openAddModal()">
-            <span>+</span> New Project
-          </button>
+          ${canCreate ? `
+            <button class="btn btn-secondary" onclick="window.Zoosh.AddClientModal.open()">
+              <span>+</span> New Client / SRL
+            </button>
+            <button class="btn btn-secondary" onclick="window.Zoosh.Views.Projects.openAddModal()">
+              <span>+</span> New Project
+            </button>
+            <button class="btn btn-primary" onclick="window.Zoosh.AddFurnitureWizard.open()">
+              <span>+</span> Add Furniture
+            </button>
+          ` : `
+            <span class="badge badge-upholstery" style="align-self: center; font-size: 12px; padding: 6px 12px;">
+              👁️ Visitor Read-Only Mode
+            </span>
+          `}
         </div>
       </div>
 
@@ -49,19 +63,30 @@ window.Zoosh.Views.Overview = {
       <div class="mobile-only" style="margin-bottom: 16px;">
         <div style="display: flex; align-items: flex-start; justify-content: space-between;">
           <div>
-            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted);">Factory Companion</div>
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted);">
+              ${isVisitor ? 'Factory Observer (Read-Only)' : 'Factory Companion'}
+            </div>
             <h2 style="font-size: 20px; font-weight: 800; color: var(--text-main); margin: 2px 0;">Production Overview</h2>
             <div style="font-size: 12px; color: var(--text-secondary);">${displayDateStr}</div>
           </div>
         </div>
-        <div style="display: flex; gap: 8px; margin-top: 12px;">
-          <button class="btn btn-primary btn-sm" style="flex: 1; font-size: 12px; padding: 7px 10px;" onclick="window.Zoosh.AddSrlWizard.open()">
-            + Add SRL
-          </button>
-          <button class="btn btn-secondary btn-sm" style="flex: 1; font-size: 12px; padding: 7px 10px;" onclick="window.Zoosh.Views.Projects.openAddModal()">
-            + New Project
-          </button>
-        </div>
+        ${canCreate ? `
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 12px;">
+            <button class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 7px 4px;" onclick="window.Zoosh.AddClientModal.open()">
+              + Client/SRL
+            </button>
+            <button class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 7px 4px;" onclick="window.Zoosh.Views.Projects.openAddModal()">
+              + Project
+            </button>
+            <button class="btn btn-primary btn-sm" style="font-size: 11px; padding: 7px 4px;" onclick="window.Zoosh.AddFurnitureWizard.open()">
+              + Furniture
+            </button>
+          </div>
+        ` : `
+          <div style="margin-top: 10px; padding: 6px 10px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 11.5px; color: #1e40af;">
+            👁️ Logged in as <strong>Visitor</strong>. System is in read-only observation mode.
+          </div>
+        `}
       </div>
 
       <!-- Mobile Swipeable Horizontal KPI Carousel (<768px) -->
@@ -151,7 +176,7 @@ window.Zoosh.Views.Overview = {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
           <div onclick="window.Zoosh.App.navigateTo('projects')" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px 14px; box-shadow: var(--shadow-sm); cursor: pointer;">
             <div style="font-size: 20px; margin-bottom: 4px;">📁</div>
-            <div style="font-weight: 700; font-size: 13.5px; color: var(--text-main);">Projects</div>
+            <div style="font-weight: 700; font-size: 13.5px; color: var(--text-main);">Projects &amp; SRL</div>
             <div style="font-size: 11px; color: var(--text-muted);">${totalProjects} orders (${activeProjects} active)</div>
           </div>
           <div onclick="window.Zoosh.App.navigateTo('schedule')" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px 14px; box-shadow: var(--shadow-sm); cursor: pointer;">
@@ -179,19 +204,6 @@ window.Zoosh.Views.Overview = {
             <div style="font-weight: 700; font-size: 13.5px; color: var(--text-main);">Reports</div>
             <div style="font-size: 11px; color: var(--text-muted);">Factory analytics &amp; loads</div>
           </div>
-        </div>
-      </div>
-
-      <!-- Mobile Data Tools (<768px) -->
-      <div class="mobile-only" style="margin-bottom: 24px; background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 14px; box-shadow: var(--shadow-sm);">
-        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px;">
-          Database &amp; Backup
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-          <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.App.exportJson()">📥 Export JSON</button>
-          <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.App.triggerImport()">📤 Import JSON</button>
-          <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.App.resetDemoData()">🔄 Reset Demo</button>
-          <button class="btn btn-secondary btn-sm" style="color: #b91c1c;" onclick="window.Zoosh.App.startFresh()">🗑️ Fresh</button>
         </div>
       </div>
 
@@ -289,7 +301,6 @@ window.Zoosh.Views.Overview = {
     }
 
     if (this.groupMode === 'department') {
-      // Group tasks by department
       const groups = {};
       todayTasks.forEach(task => {
         if (!groups[task.department]) groups[task.department] = [];
@@ -297,7 +308,7 @@ window.Zoosh.Views.Overview = {
       });
 
       return `
-        <div style="display: flex; flex-direction: column; divide-y: 1px solid var(--border-subtle);">
+        <div style="display: flex; flex-direction: column;">
           ${Object.entries(groups).map(([dept, tasks]) => `
             <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
@@ -314,7 +325,6 @@ window.Zoosh.Views.Overview = {
         </div>
       `;
     } else {
-      // Group tasks by employee
       const groups = {};
       todayTasks.forEach(task => {
         if (!groups[task.employeeName]) groups[task.employeeName] = [];
@@ -322,7 +332,7 @@ window.Zoosh.Views.Overview = {
       });
 
       return `
-        <div style="display: flex; flex-direction: column; divide-y: 1px solid var(--border-subtle);">
+        <div style="display: flex; flex-direction: column;">
           ${Object.entries(groups).map(([empName, tasks]) => `
             <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);">
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
@@ -343,19 +353,24 @@ window.Zoosh.Views.Overview = {
   },
 
   renderTaskCard(task) {
+    const srlTag = task.clientSrl ? `SRL ${task.clientSrl}` : (task.srlNumber ? `SRL ${task.srlNumber}` : '');
+    const clientName = task.clientName ? `${task.clientName} &bull; ` : '';
+
     return `
       <div style="border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 12px 14px; background: #ffffff; ${task.hasLeaveConflict ? 'border-left: 3px solid #f59e0b;' : ''}">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-          <span style="font-size: 11px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 6px; border-radius: 3px;">
-            SRL ${task.srlNumber}
-          </span>
+          ${srlTag ? `
+            <span class="badge badge-primary" style="font-size: 11px; padding: 2px 7px;">
+              ${srlTag}
+            </span>
+          ` : '<span></span>'}
           <span class="badge badge-${task.department.toLowerCase()}">${task.department}</span>
         </div>
-        <div style="font-weight: 600; font-size: 13.5px; color: var(--text-main); margin-bottom: 2px;">
+        <div style="font-weight: 700; font-size: 14px; color: var(--text-main); margin-bottom: 2px;">
           ${task.furnitureName}
         </div>
         <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px;">
-          ${task.projectName} &bull; <strong>${task.employeeName}</strong>
+          ${clientName}${task.projectName} &bull; <strong>${task.employeeName}</strong>
         </div>
         <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; border-top: 1px solid var(--border-subtle); padding-top: 8px;">
           <span style="font-family: var(--font-mono); color: var(--text-secondary); font-weight: 600;">
@@ -366,9 +381,11 @@ window.Zoosh.Views.Overview = {
         ${task.hasLeaveConflict ? `
           <div style="margin-top: 8px; padding: 4px 8px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 3px; font-size: 11px; color: #92400e; display: flex; align-items: center; justify-content: space-between;">
             <span>⚠️ Worker on leave</span>
-            <button style="border: none; background: transparent; color: #b45309; font-weight: 700; cursor: pointer;" onclick="window.Zoosh.ReallocateModal.open('${task.processId}')">
-              Reallocate &rarr;
-            </button>
+            ${window.Zoosh.Auth && window.Zoosh.Auth.canEdit() ? `
+              <button style="border: none; background: transparent; color: #b45309; font-weight: 700; cursor: pointer;" onclick="window.Zoosh.ReallocateModal.open('${task.processId}')">
+                Reallocate &rarr;
+              </button>
+            ` : ''}
           </div>
         ` : ''}
       </div>
@@ -388,10 +405,11 @@ window.Zoosh.Views.Overview = {
       <div class="mobile-today-feed">
         ${todayTasks.map(task => {
           const deptClass = `dept-${task.department.toLowerCase()}`;
+          const srlTag = task.clientSrl ? `SRL ${task.clientSrl}` : (task.srlNumber ? `SRL ${task.srlNumber}` : '');
           return `
             <div class="mobile-task-card ${deptClass}" onclick="window.Zoosh.Views.Schedule.inspectProcess('${task.processId}')">
               <div class="mobile-task-card-header">
-                <span class="mobile-task-srl">SRL ${task.srlNumber}</span>
+                ${srlTag ? `<span class="mobile-task-srl">${srlTag}</span>` : '<span></span>'}
                 <span class="badge badge-${task.department.toLowerCase()}" style="font-size: 10px;">${task.department}</span>
               </div>
               
@@ -414,9 +432,11 @@ window.Zoosh.Views.Overview = {
               ${task.hasLeaveConflict ? `
                 <div style="margin-top: 10px; padding: 6px 10px; background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-sm); font-size: 11px; color: #92400e; display: flex; align-items: center; justify-content: space-between;" onclick="event.stopPropagation();">
                   <span>⚠️ Worker on leave</span>
-                  <button class="btn btn-sm btn-accent" style="padding: 2px 8px; font-size: 10px;" onclick="window.Zoosh.ReallocateModal.open('${task.processId}')">
-                    Reallocate &rarr;
-                  </button>
+                  ${window.Zoosh.Auth && window.Zoosh.Auth.canEdit() ? `
+                    <button class="btn btn-sm btn-accent" style="padding: 2px 8px; font-size: 10px;" onclick="window.Zoosh.ReallocateModal.open('${task.processId}')">
+                      Reallocate &rarr;
+                    </button>
+                  ` : ''}
                 </div>
               ` : ''}
             </div>
@@ -433,6 +453,10 @@ window.Zoosh.Views.Overview = {
 
   handleAlertAction(actionType, targetId) {
     if (actionType === 'REALLOCATE_WORK') {
+      if (window.Zoosh.Auth && !window.Zoosh.Auth.canEdit()) {
+        alert('Permission Denied: Only Managers can reallocate work.');
+        return;
+      }
       window.Zoosh.ReallocateModal.open(targetId);
     } else if (actionType === 'VIEW_PROJECT') {
       window.Zoosh.App.navigateTo('projects');

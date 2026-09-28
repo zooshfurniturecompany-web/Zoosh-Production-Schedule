@@ -12,6 +12,10 @@
   <link rel="stylesheet" href="css/mobile.css">
 </head>
 <body>
+  <!-- Login Screen Container (Rendered when unauthenticated) -->
+  <div id="login-container" style="display: none;"></div>
+
+  <!-- Authenticated Application Shell -->
   <div id="app">
     <!-- Sidebar Navigation -->
     <aside class="app-sidebar">
@@ -40,7 +44,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             </svg>
-            Projects
+            Clients &amp; Projects
           </a>
         </li>
         <li>
@@ -62,7 +66,7 @@
               <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
               <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
             </svg>
-            Team
+            Team &amp; Craftspeople
           </a>
         </li>
         <li>
@@ -80,7 +84,7 @@
               <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
               <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
             </svg>
-            Manpower
+            Manpower &amp; Leaves
           </a>
         </li>
         <li>
@@ -93,24 +97,36 @@
             Reports
           </a>
         </li>
+        <li>
+          <a class="nav-item" data-view="settings" href="#settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            Settings &amp; Users
+          </a>
+        </li>
       </ul>
 
       <!-- Data & Persistence Footer -->
       <div class="sidebar-footer">
-        <div class="data-controls-label">Database &amp; Data Control</div>
-        <div class="data-actions-row">
-          <button class="btn-data-action" onclick="window.Zoosh.App.exportJson()" title="Download JSON backup">
-            <span>📥</span> Export
-          </button>
-          <button class="btn-data-action" onclick="window.Zoosh.App.triggerImport()" title="Restore from JSON">
-            <span>📤</span> Import
-          </button>
-          <button class="btn-data-action" onclick="window.Zoosh.App.resetDemoData()" title="Reload demo dataset">
-            <span>🔄</span> Demo
-          </button>
-          <button class="btn-data-action" onclick="window.Zoosh.App.startFresh()" title="Clear factory orders">
-            <span>🗑️</span> Fresh
-          </button>
+        <div id="sidebar-user-badge"></div>
+        <div id="sidebar-data-controls" style="margin-top: 12px;">
+          <div class="data-controls-label">Database &amp; Data Control</div>
+          <div class="data-actions-row">
+            <button class="btn-data-action" onclick="window.Zoosh.App.exportJson()" title="Download JSON backup">
+              <span>📥</span> Export
+            </button>
+            <button class="btn-data-action" onclick="window.Zoosh.App.triggerImport()" title="Restore from JSON">
+              <span>📤</span> Import
+            </button>
+            <button class="btn-data-action" onclick="window.Zoosh.App.resetDemoData()" title="Reload demo dataset">
+              <span>🔄</span> Demo
+            </button>
+            <button class="btn-data-action" onclick="window.Zoosh.App.startFresh()" title="Clear factory orders">
+              <span>🗑️</span> Fresh
+            </button>
+          </div>
         </div>
         <input type="file" id="import-file-input" accept=".json" style="display: none;" />
       </div>
@@ -131,9 +147,10 @@
             <span style="width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block;"></span>
             <span>Live Synced</span>
           </span>
-          <button class="btn btn-accent btn-sm" style="padding: 4px 8px; font-size: 11px;" onclick="window.Zoosh.AddSrlWizard.open()">
-            + SRL
+          <button class="btn btn-accent btn-sm" id="mobile-btn-add-furniture" style="padding: 4px 8px; font-size: 11px;" onclick="window.Zoosh.AddFurnitureWizard.open()">
+            + Furniture
           </button>
+          <div id="mobile-user-profile"></div>
         </div>
       </header>
 
@@ -154,12 +171,16 @@
         </div>
 
         <div class="topbar-right">
-          <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Projects.openAddModal()">
+          <button class="btn btn-secondary btn-sm" id="topbar-btn-new-client" onclick="window.Zoosh.AddClientModal.open()">
+            + Client / SRL
+          </button>
+          <button class="btn btn-secondary btn-sm" id="topbar-btn-new-proj" onclick="window.Zoosh.Views.Projects.openAddModal()">
             + New Project
           </button>
-          <button class="btn btn-accent btn-sm" onclick="window.Zoosh.AddSrlWizard.open()">
-            + Add Furniture / SRL
+          <button class="btn btn-primary btn-sm" id="topbar-btn-add-furn" onclick="window.Zoosh.AddFurnitureWizard.open()">
+            + Add Furniture
           </button>
+          <div class="user-topbar-profile" id="user-topbar-profile"></div>
         </div>
       </header>
 
@@ -215,6 +236,14 @@
         </svg>
         <span>Manpower</span>
       </button>
+
+      <button class="mobile-nav-btn" data-view="settings" onclick="window.Zoosh.App.navigateTo('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>Settings</span>
+      </button>
     </nav>
   </div>
 
@@ -228,6 +257,7 @@
 
   <!-- Application Scripts -->
   <script src="js/config.js"></script>
+  <script src="js/auth/auth.js"></script>
   <script src="js/data/demoData.js"></script>
   <script src="js/engine/calendar.js"></script>
   <script src="js/engine/scheduler.js"></script>
@@ -236,8 +266,11 @@
   <script src="js/state.js"></script>
   
   <script src="js/components/modal.js"></script>
+  <script src="js/components/addFurnitureWizard.js"></script>
   <script src="js/components/addSrlWizard.js"></script>
   <script src="js/components/reallocateModal.js"></script>
+  <script src="js/views/login.js"></script>
+  <script src="js/views/settings.js"></script>
   <script src="js/views/overview.js"></script>
   <script src="js/views/projects.js"></script>
   <script src="js/views/schedule.js"></script>

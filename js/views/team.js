@@ -13,6 +13,9 @@ window.Zoosh.Views.Team = {
     const state = window.Zoosh.State.getState();
     const config = window.Zoosh.Config;
     const calendar = window.Zoosh.Calendar;
+    const auth = window.Zoosh.Auth;
+    const canCreate = auth ? auth.canCreate() : true;
+    const canEdit = auth ? auth.canEdit() : true;
     let employees = state.employees || [];
 
     if (this.activeDeptFilter !== 'ALL') {
@@ -34,9 +37,13 @@ window.Zoosh.Views.Team = {
           <h2 class="view-header-title">Team &amp; Craftspeople</h2>
           <div class="view-header-subtitle">Factory capacity, skills database, and workload queue</div>
         </div>
-        <button class="btn btn-primary" onclick="window.Zoosh.Views.Team.openAddModal()">
-          <span>+</span> Add Employee
-        </button>
+        ${canCreate ? `
+          <button class="btn btn-primary" onclick="window.Zoosh.Views.Team.openAddModal()">
+            <span>+</span> Add Craftsperson
+          </button>
+        ` : `
+          <span class="badge badge-upholstery">👁️ Visitor Read-Only</span>
+        `}
       </div>
 
       <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
@@ -69,7 +76,7 @@ window.Zoosh.Views.Team = {
                   <th>Overtime</th>
                   <th>Current Queue</th>
                   <th>Status</th>
-                  <th>Actions</th>
+                  ${canEdit ? '<th>Actions</th>' : ''}
                 </tr>
               </thead>
               <tbody>
@@ -115,16 +122,18 @@ window.Zoosh.Views.Team = {
                           ${emp.active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td>
-                        <div style="display: flex; gap: 6px;">
-                          <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Team.openEditModal('${emp.id}')">
-                            Edit
-                          </button>
-                          <button class="btn btn-sm ${emp.active ? 'btn-secondary' : 'btn-primary'}" onclick="window.Zoosh.Views.Team.toggleActive('${emp.id}')">
-                            ${emp.active ? 'Deactivate' : 'Activate'}
-                          </button>
-                        </div>
-                      </td>
+                      ${canEdit ? `
+                        <td>
+                          <div style="display: flex; gap: 6px;">
+                            <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Team.openEditModal('${emp.id}')">
+                              Edit
+                            </button>
+                            <button class="btn btn-sm ${emp.active ? 'btn-secondary' : 'btn-primary'}" onclick="window.Zoosh.Views.Team.toggleActive('${emp.id}')">
+                              ${emp.active ? 'Deactivate' : 'Activate'}
+                            </button>
+                          </div>
+                        </td>
+                      ` : ''}
                     </tr>
                   `;
                 }).join('')}
@@ -171,14 +180,16 @@ window.Zoosh.Views.Team = {
                     </div>
                   ` : ''}
 
-                  <div style="display: flex; gap: 8px; border-top: 1px solid var(--border-subtle); padding-top: 10px;">
-                    <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="window.Zoosh.Views.Team.openEditModal('${emp.id}')">
-                      Edit Profile
-                    </button>
-                    <button class="btn btn-sm ${emp.active ? 'btn-secondary' : 'btn-primary'}" style="flex: 1;" onclick="window.Zoosh.Views.Team.toggleActive('${emp.id}')">
-                      ${emp.active ? 'Deactivate' : 'Activate'}
-                    </button>
-                  </div>
+                  ${canEdit ? `
+                    <div style="display: flex; gap: 8px; border-top: 1px solid var(--border-light); padding-top: 10px; margin-top: 6px;">
+                      <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="window.Zoosh.Views.Team.openEditModal('${emp.id}')">
+                        Edit
+                      </button>
+                      <button class="btn btn-sm ${emp.active ? 'btn-secondary' : 'btn-primary'}" style="flex: 1;" onclick="window.Zoosh.Views.Team.toggleActive('${emp.id}')">
+                        ${emp.active ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
+                  ` : ''}
                 </div>
               `;
             }).join('')}
@@ -194,6 +205,10 @@ window.Zoosh.Views.Team = {
   },
 
   toggleActive(empId) {
+    if (window.Zoosh.Auth && !window.Zoosh.Auth.canEdit()) {
+      alert('Permission Denied: Only Managers can toggle employee status.');
+      return;
+    }
     const state = window.Zoosh.State.getState();
     const emp = state.employees.find(e => e.id === empId);
     if (!emp) return;
@@ -204,6 +219,10 @@ window.Zoosh.Views.Team = {
   },
 
   openAddModal() {
+    if (window.Zoosh.Auth && !window.Zoosh.Auth.canCreate()) {
+      alert('Permission Denied: Only Managers can add employees.');
+      return;
+    }
     const config = window.Zoosh.Config;
     const title = 'Add Craftsperson';
     const bodyHtml = `
@@ -266,26 +285,34 @@ window.Zoosh.Views.Team = {
       return;
     }
 
-    window.Zoosh.State.addEmployee({
-      name,
-      department: dept,
-      secondaryDepartments,
-      joiningDate,
-      standardHoursPerDay: standardHours,
-      overtimeAvailable,
-      active: true
-    });
+    try {
+      window.Zoosh.State.addEmployee({
+        name,
+        department: dept,
+        secondaryDepartments,
+        joiningDate,
+        standardHoursPerDay: standardHours,
+        overtimeAvailable,
+        active: true
+      });
 
-    window.Zoosh.Modal.close();
+      window.Zoosh.Modal.close();
+    } catch (err) {
+      alert(err.message);
+    }
   },
 
   openEditModal(empId) {
+    if (window.Zoosh.Auth && !window.Zoosh.Auth.canEdit()) {
+      alert('Permission Denied: Only Managers can edit employee profiles.');
+      return;
+    }
     const state = window.Zoosh.State.getState();
     const emp = state.employees.find(e => e.id === empId);
     if (!emp) return;
     const config = window.Zoosh.Config;
 
-    const title = `Edit Employee — ${emp.name}`;
+    const title = `Edit Craftsperson — ${emp.name}`;
     const bodyHtml = `
       <div style="display: flex; flex-direction: column; gap: 14px;">
         <div class="form-group">
@@ -342,22 +369,34 @@ window.Zoosh.Views.Team = {
     const overtimeAvailable = document.getElementById('edit-emp-overtime').checked;
     const active = document.getElementById('edit-emp-active').checked;
 
-    window.Zoosh.State.updateEmployee(empId, {
-      name,
-      department: dept,
-      joiningDate,
-      standardHoursPerDay: standardHours,
-      overtimeAvailable,
-      active
-    });
+    try {
+      window.Zoosh.State.updateEmployee(empId, {
+        name,
+        department: dept,
+        joiningDate,
+        standardHoursPerDay: standardHours,
+        overtimeAvailable,
+        active
+      });
 
-    window.Zoosh.Modal.close();
+      window.Zoosh.Modal.close();
+    } catch (err) {
+      alert(err.message);
+    }
   },
 
   deleteEmployee(empId) {
+    if (window.Zoosh.Auth && !window.Zoosh.Auth.canDelete()) {
+      alert('Permission Denied: Only Managers can delete employees.');
+      return;
+    }
     if (confirm('Are you sure you want to delete this employee? Any assigned tasks will need reassignment.')) {
-      window.Zoosh.State.deleteEmployee(empId);
-      window.Zoosh.Modal.close();
+      try {
+        window.Zoosh.State.deleteEmployee(empId);
+        window.Zoosh.Modal.close();
+      } catch (err) {
+        alert(err.message);
+      }
     }
   }
 };

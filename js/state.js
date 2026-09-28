@@ -1,6 +1,22 @@
 /**
  * State Management & LocalStorage Persistence
  * Reactive store with event dispatching, persistence, import/export, and data resets.
+ * 
+ * Data Hierarchy:
+ * CLIENT / SRL (SRL is client/customer short-form identifier)
+ *   ↓
+ * PROJECT
+ *   ↓
+ * FURNITURE ITEMS (NO SRL numbers on furniture items!)
+ *   ↓
+ * PRODUCTION PROCESSES
+ *   ↓
+ * EMPLOYEE
+ *   ↓
+ * SCHEDULE
+ * 
+ * Security:
+ * All write methods are guarded with Auth.assertPermission().
  */
 window.Zoosh = window.Zoosh || {};
 
@@ -22,6 +38,12 @@ window.Zoosh.State = {
     return globalThis._mockStorage;
   },
 
+  _checkPermission(action) {
+    if (window.Zoosh.Auth && typeof window.Zoosh.Auth.assertPermission === 'function') {
+      window.Zoosh.Auth.assertPermission(action);
+    }
+  },
+
   init() {
     const key = window.Zoosh.Config.STORAGE_KEY;
     const storage = this._getStorage();
@@ -37,6 +59,15 @@ window.Zoosh.State = {
       this._state = window.Zoosh.DemoData.getInitialState();
     }
 
+    // Ensure synchronized furniture / srls aliases
+    this._syncFurnitureAliases();
+
+    // Ensure clients array exists
+    if (!this._state.clients) {
+      const defaultState = window.Zoosh.DemoData.getInitialState();
+      this._state.clients = defaultState.clients || [];
+    }
+
     // Always ensure current date is configured
     if (!this._state.currentDate) {
       this._state.currentDate = window.Zoosh.Config.CURRENT_DATE;
@@ -44,6 +75,17 @@ window.Zoosh.State = {
 
     // Run initial schedule calculation
     this.recalculate();
+  },
+
+  _syncFurnitureAliases() {
+    if (!this._state) return;
+    if (this._state.furniture && !this._state.srls) {
+      this._state.srls = this._state.furniture;
+    } else if (this._state.srls && !this._state.furniture) {
+      this._state.furniture = this._state.srls;
+    } else if (this._state.furniture && this._state.srls && this._state.furniture !== this._state.srls) {
+      this._state.srls = this._state.furniture;
+    }
   },
 
   getState() {
@@ -71,6 +113,7 @@ window.Zoosh.State = {
 
   persist() {
     try {
+      this._syncFurnitureAliases();
       this._getStorage().setItem(window.Zoosh.Config.STORAGE_KEY, JSON.stringify(this._state));
     } catch (e) {
       console.error('Failed to save to localStorage:', e);
@@ -84,6 +127,7 @@ window.Zoosh.State = {
   recalculate(skipCloudPush = false) {
     if (window.Zoosh.Scheduler) {
       this._state = window.Zoosh.Scheduler.recalculateAll(this._state);
+      this._syncFurnitureAliases();
     }
     this.persist();
     this.notify();
@@ -100,61 +144,200 @@ window.Zoosh.State = {
   applyRemoteState(remoteState, author = 'Cloud') {
     if (!remoteState || !remoteState.projects) return;
     this._state = remoteState;
+    this._syncFurnitureAliases();
     // Skip pushing back to avoid ping-pong loop
     this.recalculate(true);
   },
 
-  // --- CRUD Operations ---
+  // ==========================================
+  // 1. CLIENT / SRL CRUD
+  // SRL belongs to Client/Customer
+  // ==========================================
 
-  getNextSrlNumber() {
-    const srls = this._state.srls || [];
-    if (srls.length === 0) return 101;
-    const max = Math.max(...srls.map(s => Number(s.srlNumber) || 100));
+  getClients() {
+    return this._state.clients || [];
+  },
+
+  getClient(id) {
+    return (this._state.clients || []).find(c => c.id === id) || null;
+  },
+
+  getClientBySrl(srl) {
+    return (this._state.clients || []).find(c => Number(c.srl) === Number(srl)) || null;
+  },
+
+  getNextClientSrl() {
+    const clients = this._state.clients || [];
+    if (clients.length === 0) return 101;
+    const max = Math.max(...clients.map(c => Number(c.srl) || 100));
     return max + 1;
   },
 
+  addClient(clientData) {
+    this._checkPermission('create');
+
+    const srl = Number(clientData.srl) || this.getNextClientSrl();
+    const existing = this.getClientBySrl(srl);
+    if (existing) {
+      throw new Error(`A client with SRL ${srl} already exists (${existing.name}). Please use a unique SRL number.`);
+    }
+
+    const id = 'client_' + (clientData.name ? clientData.name.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'client') + '_' + Date.now().toString(36);
+    const newClient = {
+      id: id,
+      srl: srl,
+      name: (clientData.name || 'New Client').trim(),
+      location: (clientData.location || '').trim(),
+      phone: (clientData.phone || '').trim(),
+      notes: (clientData.notes || '').trim(),
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+
+    this._state.clients = this._state.clients || [];
+    this._state.clients.push(newClient);
+    this.recalculate();
+    return newClient;
+  },
+
+  updateClient(id, clientData) {
+    this._checkPermission('edit');
+
+    const client = (this._state.clients || []).find(c => c.id === id);
+    if (!client) throw new Error('Client not found');
+
+    if (clientData.srl !== undefined && Number(clientData.srl) !== Number(client.srl)) {
+      const targetSrl = Number(clientData.srl);
+      const existing = (this._state.clients || []).find(c => Number(c.srl) === targetSrl && c.id !== id);
+      if (existing) {
+        throw new Error(`A client with SRL ${targetSrl} already exists (${existing.name}).`);
+      }
+      client.srl = targetSrl;
+    }
+
+    if (clientData.name) client.name = clientData.name.trim();
+    if (clientData.location !== undefined) client.location = clientData.location.trim();
+    if (clientData.phone !== undefined) client.phone = clientData.phone.trim();
+    if (clientData.notes !== undefined) client.notes = clientData.notes.trim();
+
+    // Propagate updated client info to linked projects
+    (this._state.projects || []).forEach(p => {
+      if (p.clientId === id) {
+        p.clientName = client.name;
+        p.clientSrl = client.srl;
+      }
+    });
+
+    this.recalculate();
+    return client;
+  },
+
+  deleteClient(id) {
+    this._checkPermission('delete');
+
+    // Cascade delete: find all projects for this client
+    const projectsToDelete = (this._state.projects || []).filter(p => p.clientId === id);
+    projectsToDelete.forEach(proj => {
+      // Delete furniture and processes for project
+      const furnIds = (this._state.furniture || []).filter(f => f.projectId === proj.id).map(f => f.id);
+      this._state.processes = (this._state.processes || []).filter(p => !furnIds.includes(p.furnitureId || p.srlId));
+      this._state.furniture = (this._state.furniture || []).filter(f => f.projectId !== proj.id);
+      this._state.srls = this._state.furniture;
+    });
+
+    this._state.projects = (this._state.projects || []).filter(p => p.clientId !== id);
+    this._state.clients = (this._state.clients || []).filter(c => c.id !== id);
+    this.recalculate();
+  },
+
+  // ==========================================
+  // 2. PROJECT CRUD
+  // Belongs to Client / SRL
+  // ==========================================
+
   addProject(projectData) {
-    const id = 'proj_' + Date.now();
+    this._checkPermission('create');
+
+    const id = 'proj_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+    
+    // Resolve client
+    let clientId = projectData.clientId;
+    let client = null;
+    if (clientId) {
+      client = this.getClient(clientId);
+    }
+    if (!client && (this._state.clients || []).length > 0) {
+      client = this._state.clients[0];
+      clientId = client.id;
+    }
+
     const newProject = {
       id: id,
+      clientId: clientId || null,
+      clientName: client ? client.name : (projectData.clientName || 'Client'),
+      clientSrl: client ? client.srl : (projectData.clientSrl || null),
       name: projectData.name || 'New Project',
-      clientName: projectData.clientName || 'Client',
-      location: projectData.location || 'Factory Floor',
+      location: projectData.location || (client ? client.location : 'Factory Floor'),
       confirmedDate: projectData.confirmedDate || window.Zoosh.Config.CURRENT_DATE,
       deliveryDeadline: projectData.deliveryDeadline, // Fixed target
       notes: projectData.notes || '',
+      furnitureIds: [],
       srlIds: []
     };
+
+    this._state.projects = this._state.projects || [];
     this._state.projects.push(newProject);
     this.recalculate();
     return newProject;
   },
 
   updateProject(id, projectData) {
-    const proj = this._state.projects.find(p => p.id === id);
+    this._checkPermission('edit');
+
+    const proj = (this._state.projects || []).find(p => p.id === id);
     if (!proj) return null;
+
+    if (projectData.clientId && projectData.clientId !== proj.clientId) {
+      const client = this.getClient(projectData.clientId);
+      if (client) {
+        proj.clientId = client.id;
+        proj.clientName = client.name;
+        proj.clientSrl = client.srl;
+      }
+    }
+
     Object.assign(proj, projectData);
     this.recalculate();
     return proj;
   },
 
   deleteProject(id) {
-    // Delete project and related SRLs and processes
-    const srlsToDelete = this._state.srls.filter(s => s.projectId === id).map(s => s.id);
-    this._state.processes = this._state.processes.filter(p => !srlsToDelete.includes(p.srlId));
-    this._state.srls = this._state.srls.filter(s => s.projectId !== id);
-    this._state.projects = this._state.projects.filter(p => p.id !== id);
+    this._checkPermission('delete');
+
+    // Delete project and its furniture items and processes
+    const furnToDelete = (this._state.furniture || []).filter(s => s.projectId === id).map(s => s.id);
+    this._state.processes = (this._state.processes || []).filter(p => !furnToDelete.includes(p.furnitureId || p.srlId));
+    this._state.furniture = (this._state.furniture || []).filter(s => s.projectId !== id);
+    this._state.srls = this._state.furniture;
+    this._state.projects = (this._state.projects || []).filter(p => p.id !== id);
     this.recalculate();
   },
 
-  addSrl(srlData, processesList) {
-    const srlNumber = this.getNextSrlNumber();
-    const srlId = 'srl_' + srlNumber;
+  // ==========================================
+  // 3. FURNITURE CRUD
+  // Belongs to Project. NO SRL numbers on furniture!
+  // ==========================================
+
+  addFurniture(furnitureData, processesList) {
+    this._checkPermission('create');
+
+    const furnId = 'furn_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+    const furnitureName = (furnitureData.name || furnitureData.furnitureName || 'New Furniture Item').trim();
     
     const newProcesses = (processesList || []).map((p, idx) => ({
-      id: `proc_${srlNumber}_${idx + 1}`,
-      srlId: srlId,
-      projectId: srlData.projectId,
+      id: `proc_${furnId.replace('furn_', '')}_${idx + 1}`,
+      furnitureId: furnId,
+      srlId: furnId, // backward compatibility alias for engine
+      projectId: furnitureData.projectId,
       sequence: idx + 1,
       department: p.department,
       employeeId: p.employeeId,
@@ -164,53 +347,97 @@ window.Zoosh.State = {
       notes: p.notes || ''
     }));
 
-    const newSrl = {
-      id: srlId,
-      srlNumber: srlNumber,
-      projectId: srlData.projectId,
-      furnitureName: srlData.furnitureName,
-      flowTypeId: srlData.flowTypeId || null,
-      startDate: srlData.startDate || window.Zoosh.Config.CURRENT_DATE,
+    const newFurniture = {
+      id: furnId,
+      projectId: furnitureData.projectId,
+      name: furnitureName,
+      furnitureName: furnitureName, // backward compatibility alias
+      flowTypeId: furnitureData.flowTypeId || null,
+      startDate: furnitureData.startDate || window.Zoosh.Config.CURRENT_DATE,
       status: 'NOT_STARTED',
       processIds: newProcesses.map(p => p.id)
     };
 
-    this._state.srls.push(newSrl);
+    this._state.furniture = this._state.furniture || [];
+    this._state.furniture.push(newFurniture);
+    this._state.srls = this._state.furniture; // synchronized alias
+
+    this._state.processes = this._state.processes || [];
     this._state.processes.push(...newProcesses);
 
     // Link into project
-    const proj = this._state.projects.find(p => p.id === srlData.projectId);
+    const proj = (this._state.projects || []).find(p => p.id === furnitureData.projectId);
     if (proj) {
+      proj.furnitureIds = proj.furnitureIds || [];
+      proj.furnitureIds.push(furnId);
       proj.srlIds = proj.srlIds || [];
-      proj.srlIds.push(srlId);
+      proj.srlIds.push(furnId);
     }
 
     this.recalculate();
-    return newSrl;
+    return newFurniture;
   },
 
+  updateFurniture(id, furnitureData) {
+    this._checkPermission('edit');
+
+    const item = (this._state.furniture || []).find(f => f.id === id);
+    if (!item) return null;
+
+    if (furnitureData.name) {
+      item.name = furnitureData.name;
+      item.furnitureName = furnitureData.name;
+    }
+    Object.assign(item, furnitureData);
+    this.recalculate();
+    return item;
+  },
+
+  deleteFurniture(furnId) {
+    this._checkPermission('delete');
+
+    this._state.processes = (this._state.processes || []).filter(p => (p.furnitureId || p.srlId) !== furnId);
+    const furn = (this._state.furniture || []).find(s => s.id === furnId);
+    if (furn) {
+      const proj = (this._state.projects || []).find(p => p.id === furn.projectId);
+      if (proj) {
+        if (proj.furnitureIds) proj.furnitureIds = proj.furnitureIds.filter(id => id !== furnId);
+        if (proj.srlIds) proj.srlIds = proj.srlIds.filter(id => id !== furnId);
+      }
+    }
+    this._state.furniture = (this._state.furniture || []).filter(s => s.id !== furnId);
+    this._state.srls = this._state.furniture;
+    this.recalculate();
+  },
+
+  // Legacy aliases
+  addSrl(data, procs) {
+    return this.addFurniture(data, procs);
+  },
+
+  deleteSrl(srlId) {
+    return this.deleteFurniture(srlId);
+  },
+
+  getNextSrlNumber() {
+    return this.getNextClientSrl();
+  },
+
+  // ==========================================
+  // 4. PROCESS, EMPLOYEE, MANPOWER & FLOW CRUD
+  // ==========================================
+
   updateProcess(id, procData) {
-    const proc = this._state.processes.find(p => p.id === id);
+    this._checkPermission('edit');
+    const proc = (this._state.processes || []).find(p => p.id === id);
     if (!proc) return null;
     Object.assign(proc, procData);
     this.recalculate();
     return proc;
   },
 
-  deleteSrl(srlId) {
-    this._state.processes = this._state.processes.filter(p => p.srlId !== srlId);
-    const srl = this._state.srls.find(s => s.id === srlId);
-    if (srl) {
-      const proj = this._state.projects.find(p => p.id === srl.projectId);
-      if (proj && proj.srlIds) {
-        proj.srlIds = proj.srlIds.filter(id => id !== srlId);
-      }
-    }
-    this._state.srls = this._state.srls.filter(s => s.id !== srlId);
-    this.recalculate();
-  },
-
   addEmployee(empData) {
+    this._checkPermission('create');
     const id = 'emp_' + (empData.name.toLowerCase().replace(/[^a-z0-9]/g, '_')) + '_' + Date.now().toString().slice(-4);
     const newEmp = {
       id: id,
@@ -229,7 +456,8 @@ window.Zoosh.State = {
   },
 
   updateEmployee(id, empData) {
-    const emp = this._state.employees.find(e => e.id === id);
+    this._checkPermission('edit');
+    const emp = (this._state.employees || []).find(e => e.id === id);
     if (!emp) return null;
     Object.assign(emp, empData);
     this.recalculate();
@@ -237,11 +465,13 @@ window.Zoosh.State = {
   },
 
   deleteEmployee(id) {
-    this._state.employees = this._state.employees.filter(e => e.id !== id);
+    this._checkPermission('delete');
+    this._state.employees = (this._state.employees || []).filter(e => e.id !== id);
     this.recalculate();
   },
 
   addManpowerRecord(recordData) {
+    this._checkPermission('create');
     const id = 'manpower_' + Date.now();
     const newRec = {
       id: id,
@@ -258,11 +488,13 @@ window.Zoosh.State = {
   },
 
   deleteManpowerRecord(id) {
-    this._state.manpowerRecords = this._state.manpowerRecords.filter(m => m.id !== id);
+    this._checkPermission('delete');
+    this._state.manpowerRecords = (this._state.manpowerRecords || []).filter(m => m.id !== id);
     this.recalculate();
   },
 
   addFlowType(flowData) {
+    this._checkPermission('create');
     const id = 'flow_type_' + Date.now();
     const newFlow = {
       id: id,
@@ -278,34 +510,80 @@ window.Zoosh.State = {
   },
 
   deleteFlowType(id) {
-    this._state.flowTypes = this._state.flowTypes.filter(f => f.id !== id);
+    this._checkPermission('delete');
+    this._state.flowTypes = (this._state.flowTypes || []).filter(f => f.id !== id);
     this.persist();
     this.notify();
   },
 
-  // --- Reset & Import/Export ---
+  // ==========================================
+  // 5. DATA LIFECYCLE MANAGEMENT (RBAC Controlled)
+  // Accounts and Auth store are NEVER altered by these actions!
+  // ==========================================
 
   resetDemoData() {
+    this._checkPermission('reset');
     this._state = window.Zoosh.DemoData.getInitialState();
+    this._syncFurnitureAliases();
     this.recalculate();
   },
 
   startFresh() {
+    this._checkPermission('reset');
     const initial = window.Zoosh.DemoData.getInitialState();
     this._state = {
       currentDate: window.Zoosh.Config.CURRENT_DATE,
       employees: initial.employees, // retain basic team template
       flowTypes: initial.flowTypes, // retain standard flow types
+      clients: [],
       projects: [],
+      furniture: [],
       srls: [],
       processes: [],
       manpowerRecords: []
     };
+    this._syncFurnitureAliases();
+    this.recalculate();
+  },
+
+  clearAllProductionData(confirmationText) {
+    this._checkPermission('reset');
+    if (confirmationText !== 'DELETE ALL DATA') {
+      throw new Error('Confirmation string did not match. Action aborted.');
+    }
+    const initial = window.Zoosh.DemoData.getInitialState();
+    this._state = {
+      currentDate: window.Zoosh.Config.CURRENT_DATE,
+      employees: initial.employees,
+      flowTypes: initial.flowTypes,
+      clients: [],
+      projects: [],
+      furniture: [],
+      srls: [],
+      processes: [],
+      manpowerRecords: []
+    };
+    this._syncFurnitureAliases();
     this.recalculate();
   },
 
   exportJson() {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(this._state, null, 2));
+    this._checkPermission('export');
+    // Export strictly production data, never include auth accounts
+    const exportPayload = {
+      version: '2.0',
+      exportedAt: new Date().toISOString(),
+      currentDate: this._state.currentDate,
+      clients: this._state.clients || [],
+      projects: this._state.projects || [],
+      furniture: this._state.furniture || [],
+      processes: this._state.processes || [],
+      employees: this._state.employees || [],
+      flowTypes: this._state.flowTypes || [],
+      manpowerRecords: this._state.manpowerRecords || []
+    };
+
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportPayload, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
     downloadAnchor.setAttribute('download', `zoosh_production_backup_${window.Zoosh.Config.CURRENT_DATE}.json`);
@@ -315,12 +593,14 @@ window.Zoosh.State = {
   },
 
   importJson(jsonString) {
+    this._checkPermission('import');
     try {
       const parsed = JSON.parse(jsonString);
       if (!parsed.projects || !parsed.employees || !parsed.processes) {
         throw new Error('Invalid schema: Missing projects, employees, or processes.');
       }
       this._state = parsed;
+      this._syncFurnitureAliases();
       this.recalculate();
       return { success: true };
     } catch (err) {

@@ -1,6 +1,8 @@
 /**
  * Production Reports & Factory Analytics View
  * Department capacity, delivery punctuality, craftsperson queue distribution, and schedule exports.
+ * 
+ * Hierarchy: Client / SRL -> Project -> Furniture Item -> Process
  */
 window.Zoosh = window.Zoosh || {};
 window.Zoosh.Views = window.Zoosh.Views || {};
@@ -12,6 +14,8 @@ window.Zoosh.Views.Reports = {
     const projects = state.projects || [];
     const processes = state.processes || [];
     const employees = (state.employees || []).filter(e => e.active);
+    const auth = window.Zoosh.Auth;
+    const canExport = auth ? auth.canExport() : true;
 
     const onScheduleCount = projects.filter(p => p.deadlineStatus === 'ON_SCHEDULE').length;
     const atRiskCount = projects.filter(p => p.deadlineStatus === 'AT_RISK').length;
@@ -51,9 +55,11 @@ window.Zoosh.Views.Reports = {
           <button class="btn btn-secondary" onclick="window.print()">
             🖨️ Print Report
           </button>
-          <button class="btn btn-primary" onclick="window.Zoosh.Views.Reports.exportCsv()">
-            📥 Export CSV
-          </button>
+          ${canExport ? `
+            <button class="btn btn-primary" onclick="window.Zoosh.Views.Reports.exportCsv()">
+              📥 Export CSV
+            </button>
+          ` : ''}
         </div>
       </div>
 
@@ -149,23 +155,32 @@ window.Zoosh.Views.Reports = {
   },
 
   exportCsv() {
+    if (window.Zoosh.Auth) {
+      window.Zoosh.Auth.assertPermission('export');
+    }
+
     const state = window.Zoosh.State.getState();
-    const srlsMap = new Map((state.srls || []).map(s => [s.id, s]));
+    const srlsMap = new Map((state.furniture || state.srls || []).map(s => [s.id, s]));
     const projectsMap = new Map((state.projects || []).map(p => [p.id, p]));
+    const clientsMap = new Map((state.clients || []).map(c => [c.id, c]));
     const employeesMap = new Map((state.employees || []).map(e => [e.id, e]));
 
-    let csv = 'SRL Number,Furniture Item,Project Name,Client,Stage Sequence,Department,Craftsperson,Start Date,End Date,Duration Days,Status\n';
+    let csv = 'Client,Client SRL,Project Name,Furniture Item,Stage Sequence,Department,Craftsperson,Start Date,End Date,Duration Days,Status\n';
 
     (state.processes || []).forEach(p => {
-      const srl = srlsMap.get(p.srlId);
+      const srl = srlsMap.get(p.furnitureId || p.srlId);
       const proj = srl ? projectsMap.get(srl.projectId) : null;
+      const client = proj ? clientsMap.get(proj.clientId) : null;
+      const clientSrl = client ? client.srl : (proj ? proj.clientSrl : '—');
+      const clientName = client ? client.name : (proj ? proj.clientName : 'Client');
       const emp = employeesMap.get(p.employeeId);
+      const furnitureName = srl ? (srl.name || srl.furnitureName) : 'Furniture';
 
       const row = [
-        srl ? srl.srlNumber : '',
-        `"${(srl ? srl.furnitureName : '').replace(/"/g, '""')}"`,
+        `"${clientName.replace(/"/g, '""')}"`,
+        clientSrl,
         `"${(proj ? proj.name : '').replace(/"/g, '""')}"`,
-        `"${(proj ? proj.clientName : '').replace(/"/g, '""')}"`,
+        `"${furnitureName.replace(/"/g, '""')}"`,
         p.sequence,
         p.department,
         `"${(emp ? emp.name : '').replace(/"/g, '""')}"`,
