@@ -6,15 +6,28 @@
 
 /* Mobile Bottom Navigation & Top Header (Hidden on Desktop) */
 .mobile-bottom-nav {
-  display: none;
+  display: none !important;
 }
 
 .mobile-topbar {
-  display: none;
+  display: none !important;
 }
 
 .mobile-only {
   display: none !important;
+}
+
+.mobile-bottom-sheet {
+  display: none !important;
+}
+
+.mobile-menu-icon svg {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  max-width: 20px;
+  max-height: 20px;
 }
 
 /* ==========================================================================
@@ -476,7 +489,7 @@
     background: rgba(15, 23, 42, 0.5);
     backdrop-filter: blur(2px);
     z-index: 100;
-    display: flex;
+    display: flex !important;
     flex-direction: column;
     justify-content: flex-end;
     opacity: 0;
