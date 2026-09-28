@@ -4,21 +4,19 @@
    Purpose-built mobile factory companion interface
    ========================================================================== */
 
-/* Mobile Bottom Navigation & Top Header (Hidden on Desktop) */
-.mobile-bottom-nav {
-  display: none !important;
-}
-
-.mobile-topbar {
-  display: none !important;
-}
-
-.mobile-only {
-  display: none !important;
+/* ==========================================================================
+   DESKTOP ONLY (> 768px): Hide mobile navigation & mobile components
+   ========================================================================== */
+@media screen and (min-width: 769px) {
+  .mobile-bottom-nav,
+  .mobile-topbar,
+  .mobile-only {
+    display: none !important;
+  }
 }
 
 /* ==========================================================================
-   RESPONSIVE BREAKPOINT: < 768px
+   MOBILE ONLY (<= 768px): Mobile Factory Companion Layout
    ========================================================================== */
 @media screen and (max-width: 768px) {
   /* Layout Adjustments */
@@ -29,6 +27,7 @@
   #app {
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
   }
 
@@ -46,6 +45,7 @@
   .app-main {
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -53,7 +53,7 @@
 
   .view-viewport {
     flex: 1;
-    padding: 16px 16px 84px 16px; /* 84px bottom padding ensures content clears the bottom nav */
+    padding: 14px 14px 84px 14px; /* 84px bottom padding ensures content clears the bottom nav */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -63,12 +63,12 @@
   }
 
   .mobile-only {
-    display: block !important;
+    display: block;
   }
 
   /* Compact Mobile Header (56px) */
   .mobile-topbar {
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: space-between;
     height: 56px;
@@ -123,7 +123,7 @@
 
   /* Fixed Mobile Bottom Navigation Bar */
   .mobile-bottom-nav {
-    display: flex;
+    display: flex !important;
     position: fixed;
     bottom: 0;
     left: 0;
@@ -192,7 +192,7 @@
 
   /* Horizontal Scrolling KPI Carousel */
   .mobile-kpi-scroll {
-    display: flex;
+    display: flex !important;
     gap: 12px;
     overflow-x: auto;
     padding-bottom: 8px;

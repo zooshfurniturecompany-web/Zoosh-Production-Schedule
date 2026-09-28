@@ -45,17 +45,33 @@ window.Zoosh.Views.Overview = {
         </div>
       </div>
 
-      <!-- Mobile Greeting (<768px) -->
+      <!-- Mobile Header & Actions (<768px) -->
       <div class="mobile-only" style="margin-bottom: 16px;">
-        <div style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Good morning</div>
-        <h2 style="font-size: 20px; font-weight: 800; color: var(--text-main); margin: 2px 0;">Production Overview</h2>
-        <div style="font-size: 12.5px; color: var(--text-secondary);">${displayDateStr}</div>
+        <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+          <div>
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted);">Factory Companion</div>
+            <h2 style="font-size: 20px; font-weight: 800; color: var(--text-main); margin: 2px 0;">Production Overview</h2>
+            <div style="font-size: 12px; color: var(--text-secondary);">${displayDateStr}</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; margin-top: 12px;">
+          <button class="btn btn-primary btn-sm" style="flex: 1; font-size: 12px; padding: 7px 10px;" onclick="window.Zoosh.AddSrlWizard.open()">
+            + Add SRL
+          </button>
+          <button class="btn btn-secondary btn-sm" style="flex: 1; font-size: 12px; padding: 7px 10px;" onclick="window.Zoosh.Views.Projects.openAddModal()">
+            + New Project
+          </button>
+        </div>
       </div>
 
       <!-- Mobile Swipeable Horizontal KPI Carousel (<768px) -->
       <div class="mobile-kpi-scroll mobile-only">
         <div class="mobile-kpi-card">
-          <div class="metric-card-label">Active Projects</div>
+          <div class="metric-card-label">Total Projects</div>
+          <div class="metric-card-value">${totalProjects}</div>
+        </div>
+        <div class="mobile-kpi-card">
+          <div class="metric-card-label">Active Orders</div>
           <div class="metric-card-value" style="color: var(--accent-blue);">${activeProjects}</div>
         </div>
         <div class="mobile-kpi-card ${atRiskProjects > 0 ? 'warning' : ''}">
@@ -82,6 +98,20 @@ window.Zoosh.Views.Overview = {
           <span>Today's Production</span>
           <span style="font-size: 11px; font-weight: 500; color: var(--text-muted);">${todayTasks.length} active tasks</span>
         </div>
+
+        <div style="display: flex; gap: 6px; margin: 8px 0 12px 0;">
+          <button class="btn btn-sm ${this.groupMode === 'department' ? 'btn-primary' : 'btn-secondary'}" 
+            style="flex: 1; font-size: 11px; padding: 6px;" 
+            onclick="window.Zoosh.Views.Overview.setGroupMode('department')">
+            By Department
+          </button>
+          <button class="btn btn-sm ${this.groupMode === 'employee' ? 'btn-primary' : 'btn-secondary'}" 
+            style="flex: 1; font-size: 11px; padding: 6px;" 
+            onclick="window.Zoosh.Views.Overview.setGroupMode('employee')">
+            By Worker
+          </button>
+        </div>
+
         ${this.renderMobileTodayFeed(todayTasks)}
       </div>
 
@@ -112,6 +142,58 @@ window.Zoosh.Views.Overview = {
           </div>
         </div>
       ` : ''}
+
+      <!-- Mobile Factory Sections Hub (<768px) -->
+      <div class="mobile-only" style="margin-bottom: 24px;">
+        <div class="mobile-section-title">
+          <span>Factory Navigation</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div onclick="window.Zoosh.App.navigateTo('projects')" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px 14px; box-shadow: var(--shadow-sm); cursor: pointer;">
+            <div style="font-size: 20px; margin-bottom: 4px;">📁</div>
+            <div style="font-weight: 700; font-size: 13.5px; color: var(--text-main);">Projects</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${totalProjects} orders (${activeProjects} active)</div>
+          </div>
+          <div onclick="window.Zoosh.App.navigateTo('schedule')" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px 14px; box-shadow: var(--shadow-sm); cursor: pointer;">
+            <div style="font-size: 20px; margin-bottom: 4px;">📅</div>
+            <div style="font-weight: 700; font-size: 13.5px; color: var(--text-main);">Schedule</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${todayTasks.length} active tasks today</div>
+          </div>
+          <div onclick="window.Zoosh.App.navigateTo('team')" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px 14px; box-shadow: var(--shadow-sm); cursor: pointer;">
+            <div style="font-size: 20px; margin-bottom: 4px;">👥</div>
+            <div style="font-weight: 700; font-size: 13.5px; color: var(--text-main);">Team</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${totalEmployees} active craftspeople</div>
+          </div>
+          <div onclick="window.Zoosh.App.navigateTo('manpower')" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px 14px; box-shadow: var(--shadow-sm); cursor: pointer;">
+            <div style="font-size: 20px; margin-bottom: 4px;">💼</div>
+            <div style="font-weight: 700; font-size: 13.5px; color: var(--text-main);">Manpower</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Leave log &amp; overtime</div>
+          </div>
+          <div onclick="window.Zoosh.App.navigateTo('processes')" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px 14px; box-shadow: var(--shadow-sm); cursor: pointer;">
+            <div style="font-size: 20px; margin-bottom: 4px;">⚙️</div>
+            <div style="font-weight: 700; font-size: 13.5px; color: var(--text-main);">Processes</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Standard flow sequences</div>
+          </div>
+          <div onclick="window.Zoosh.App.navigateTo('reports')" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px 14px; box-shadow: var(--shadow-sm); cursor: pointer;">
+            <div style="font-size: 20px; margin-bottom: 4px;">📊</div>
+            <div style="font-weight: 700; font-size: 13.5px; color: var(--text-main);">Reports</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Factory analytics &amp; loads</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile Data Tools (<768px) -->
+      <div class="mobile-only" style="margin-bottom: 24px; background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 14px; box-shadow: var(--shadow-sm);">
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px;">
+          Database &amp; Backup
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.App.exportJson()">📥 Export JSON</button>
+          <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.App.triggerImport()">📤 Import JSON</button>
+          <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.App.resetDemoData()">🔄 Reset Demo</button>
+          <button class="btn btn-secondary btn-sm" style="color: #b91c1c;" onclick="window.Zoosh.App.startFresh()">🗑️ Fresh</button>
+        </div>
+      </div>
 
       <!-- Desktop Live KPI Metric Cards (>768px) -->
       <div class="metrics-grid desktop-only">
