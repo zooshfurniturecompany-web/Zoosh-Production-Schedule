@@ -1,0 +1,5 @@
+node_modules/
+.vercel/
+test_*.js
+.DS_Store
+Thumbs.db

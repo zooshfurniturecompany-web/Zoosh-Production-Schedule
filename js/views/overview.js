@@ -1,0 +1,244 @@
+/**
+ * Overview / Director Dashboard View
+ * Live KPIs, Today's Production, and Actionable Factory Alerts
+ */
+window.Zoosh = window.Zoosh || {};
+window.Zoosh.Views = window.Zoosh.Views || {};
+
+window.Zoosh.Views.Overview = {
+  groupMode: 'department', // 'department' | 'employee'
+
+  render(container) {
+    const state = window.Zoosh.State.getState();
+    const config = window.Zoosh.Config;
+    const calendar = window.Zoosh.Calendar;
+    const computed = state.computed || {};
+
+    const projects = state.projects || [];
+    const totalProjects = projects.length;
+    const activeProjects = projects.filter(p => (p.completionPercent || 0) < 100).length;
+    const atRiskProjects = projects.filter(p => p.deadlineStatus === 'AT_RISK').length;
+    const delayedProjects = projects.filter(p => p.deadlineStatus === 'DELAYED').length;
+    const totalEmployees = (state.employees || []).filter(e => e.active).length;
+    const todayTasks = computed.todayTasks || [];
+    const alerts = computed.alerts || [];
+
+    const displayDateStr = calendar.formatDisplayDate(config.CURRENT_DATE, true, true);
+
+    container.innerHTML = `
+      <div class="view-header">
+        <div>
+          <div style="font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted);">
+            Good morning &bull; Factory Director
+          </div>
+          <h2 class="view-header-title" style="margin-top: 2px;">Production Overview</h2>
+          <div class="view-header-subtitle">${displayDateStr}</div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-primary" onclick="window.Zoosh.AddSrlWizard.open()">
+            <span>+</span> Add Furniture / SRL
+          </button>
+          <button class="btn btn-secondary" onclick="window.Zoosh.Views.Projects.openAddModal()">
+            <span>+</span> New Project
+          </button>
+        </div>
+      </div>
+
+      <!-- Live KPI Metric Cards -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-card-label">Total Projects</div>
+          <div class="metric-card-value">${totalProjects}</div>
+          <div class="metric-card-hint">All customer orders</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-label">Active Projects</div>
+          <div class="metric-card-value" style="color: var(--accent-blue);">${activeProjects}</div>
+          <div class="metric-card-hint">Currently on shop floor</div>
+        </div>
+        <div class="metric-card ${atRiskProjects > 0 ? 'warning' : ''}">
+          <div class="metric-card-label">At Risk</div>
+          <div class="metric-card-value">${atRiskProjects}</div>
+          <div class="metric-card-hint">Within 2 days of deadline</div>
+        </div>
+        <div class="metric-card ${delayedProjects > 0 ? 'danger' : ''}">
+          <div class="metric-card-label">Delayed</div>
+          <div class="metric-card-value">${delayedProjects}</div>
+          <div class="metric-card-hint">Past delivery target</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-label">Employees</div>
+          <div class="metric-card-value">${totalEmployees}</div>
+          <div class="metric-card-hint">Active craftspeople</div>
+        </div>
+        <div class="metric-card success">
+          <div class="metric-card-label">Today's Tasks</div>
+          <div class="metric-card-value">${todayTasks.length}</div>
+          <div class="metric-card-hint">Live tasks scheduled today</div>
+        </div>
+      </div>
+
+      <!-- Actionable Factory Alerts -->
+      ${alerts.length > 0 ? `
+        <div class="alerts-section">
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 2px;">
+            Action Required Alerts (${alerts.length})
+          </div>
+          ${alerts.map(a => `
+            <div class="alert-card ${a.type}">
+              <div class="alert-info">
+                <span class="alert-icon">${a.type === 'danger' ? '🚨' : (a.type === 'warning' ? '⚠️' : 'ℹ️')}</span>
+                <div>
+                  <div class="alert-title">${a.title}</div>
+                  <div class="alert-desc">${a.message}</div>
+                </div>
+              </div>
+              <button class="alert-action-btn" onclick="window.Zoosh.Views.Overview.handleAlertAction('${a.actionType}', '${a.targetId}')">
+                ${a.actionLabel} &rarr;
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      <!-- Today's Production Live Board -->
+      <div class="card-panel">
+        <div class="card-panel-header">
+          <div>
+            <div class="card-panel-title">Today's Production</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+              Active work scheduled for ${calendar.formatDisplayDate(config.CURRENT_DATE, false, true)}
+            </div>
+          </div>
+          <div class="btn-group">
+            <button class="btn-group-btn ${this.groupMode === 'department' ? 'active' : ''}" 
+              onclick="window.Zoosh.Views.Overview.setGroupMode('department')">
+              By Department
+            </button>
+            <button class="btn-group-btn ${this.groupMode === 'employee' ? 'active' : ''}" 
+              onclick="window.Zoosh.Views.Overview.setGroupMode('employee')">
+              By Employee
+            </button>
+          </div>
+        </div>
+        <div class="card-panel-body" style="padding: 0;">
+          ${this.renderTodayProductionList(todayTasks)}
+        </div>
+      </div>
+    `;
+  },
+
+  renderTodayProductionList(todayTasks) {
+    if (todayTasks.length === 0) {
+      return `
+        <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+          No production tasks scheduled for today.
+        </div>
+      `;
+    }
+
+    if (this.groupMode === 'department') {
+      // Group tasks by department
+      const groups = {};
+      todayTasks.forEach(task => {
+        if (!groups[task.department]) groups[task.department] = [];
+        groups[task.department].push(task);
+      });
+
+      return `
+        <div style="display: flex; flex-direction: column; divide-y: 1px solid var(--border-subtle);">
+          ${Object.entries(groups).map(([dept, tasks]) => `
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="badge badge-${dept.toLowerCase()}">${dept}</span>
+                  <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">(${tasks.length} active tasks)</span>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+                ${tasks.map(t => this.renderTaskCard(t)).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } else {
+      // Group tasks by employee
+      const groups = {};
+      todayTasks.forEach(task => {
+        if (!groups[task.employeeName]) groups[task.employeeName] = [];
+        groups[task.employeeName].push(task);
+      });
+
+      return `
+        <div style="display: flex; flex-direction: column; divide-y: 1px solid var(--border-subtle);">
+          ${Object.entries(groups).map(([empName, tasks]) => `
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <div style="width: 24px; height: 24px; border-radius: 50%; background: #0f172a; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;">
+                  ${empName.charAt(0)}
+                </div>
+                <span style="font-weight: 700; font-size: 13.5px; color: var(--text-main);">${empName}</span>
+                <span style="font-size: 12px; color: var(--text-muted);">(${tasks.length} task${tasks.length > 1 ? 's' : ''})</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+                ${tasks.map(t => this.renderTaskCard(t)).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+  },
+
+  renderTaskCard(task) {
+    return `
+      <div style="border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 12px 14px; background: #ffffff; ${task.hasLeaveConflict ? 'border-left: 3px solid #f59e0b;' : ''}">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <span style="font-size: 11px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 6px; border-radius: 3px;">
+            SRL ${task.srlNumber}
+          </span>
+          <span class="badge badge-${task.department.toLowerCase()}">${task.department}</span>
+        </div>
+        <div style="font-weight: 600; font-size: 13.5px; color: var(--text-main); margin-bottom: 2px;">
+          ${task.furnitureName}
+        </div>
+        <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px;">
+          ${task.projectName} &bull; <strong>${task.employeeName}</strong>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; border-top: 1px solid var(--border-subtle); padding-top: 8px;">
+          <span style="font-family: var(--font-mono); color: var(--text-secondary); font-weight: 600;">
+            ${task.timeStr}
+          </span>
+          <span style="font-size: 11px; color: var(--text-muted);">${task.hoursToday}h scheduled</span>
+        </div>
+        ${task.hasLeaveConflict ? `
+          <div style="margin-top: 8px; padding: 4px 8px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 3px; font-size: 11px; color: #92400e; display: flex; align-items: center; justify-content: space-between;">
+            <span>⚠️ Worker on leave</span>
+            <button style="border: none; background: transparent; color: #b45309; font-weight: 700; cursor: pointer;" onclick="window.Zoosh.ReallocateModal.open('${task.processId}')">
+              Reallocate &rarr;
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  },
+
+  setGroupMode(mode) {
+    this.groupMode = mode;
+    this.render(document.getElementById('view-container'));
+  },
+
+  handleAlertAction(actionType, targetId) {
+    if (actionType === 'REALLOCATE_WORK') {
+      window.Zoosh.ReallocateModal.open(targetId);
+    } else if (actionType === 'VIEW_PROJECT') {
+      window.Zoosh.App.navigateTo('projects');
+      setTimeout(() => {
+        window.Zoosh.Views.Projects.openDetail(targetId);
+      }, 50);
+    } else if (actionType === 'VIEW_MANPOWER') {
+      window.Zoosh.App.navigateTo('manpower');
+    }
+  }
+};
