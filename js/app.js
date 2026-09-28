@@ -75,8 +75,9 @@ window.Zoosh.App = {
 
   navigateTo(viewName) {
     this.currentView = viewName;
+    this.mobileBackCallback = null;
 
-    // Update active class on nav links
+    // Update active class on desktop nav links
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
       if (item.getAttribute('data-view') === viewName) {
@@ -86,7 +87,47 @@ window.Zoosh.App = {
       }
     });
 
+    // Update active class on mobile bottom nav buttons
+    const mobileNavBtns = document.querySelectorAll('.mobile-nav-btn');
+    mobileNavBtns.forEach(btn => {
+      if (btn.getAttribute('data-view') === viewName) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    // Update Mobile Header Title
+    const viewTitles = {
+      overview: 'Overview',
+      projects: 'Projects',
+      schedule: 'Production Schedule',
+      team: 'Team & Craftspeople',
+      processes: 'Process Flow Types',
+      manpower: 'Manpower & Leaves',
+      reports: 'Factory Reports'
+    };
+    this.updateMobileHeader(viewTitles[viewName] || 'Zoosh Production', false);
+
     this.renderCurrentView();
+  },
+
+  updateMobileHeader(title, showBack = false, backCallback = null) {
+    const titleEl = document.getElementById('mobile-topbar-title');
+    const backBtn = document.getElementById('mobile-back-btn');
+    if (titleEl) titleEl.textContent = title;
+    if (backBtn) {
+      backBtn.style.display = showBack ? 'flex' : 'none';
+      this.mobileBackCallback = backCallback;
+    }
+  },
+
+  handleMobileBack() {
+    if (typeof this.mobileBackCallback === 'function') {
+      this.mobileBackCallback();
+    } else {
+      this.navigateTo(this.currentView);
+    }
   },
 
   renderCurrentView() {

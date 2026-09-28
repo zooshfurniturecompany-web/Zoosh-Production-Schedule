@@ -57,7 +57,7 @@ window.Zoosh.Views.Team = {
 
       <div class="card-panel">
         <div class="card-panel-body" style="padding: 0;">
-          <div class="data-table-wrapper">
+          <div class="data-table-wrapper desktop-only">
             <table class="data-table">
               <thead>
                 <tr>
@@ -130,6 +130,58 @@ window.Zoosh.Views.Team = {
                 }).join('')}
               </tbody>
             </table>
+          </div>
+
+          <!-- Mobile Employee Cards Feed (<768px) -->
+          <div class="mobile-only" style="padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+            ${employees.map(emp => {
+              const queueDays = workloadMap.get(emp.id) || 0;
+              return `
+                <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 14px; box-shadow: var(--shadow-sm); border-left: 4px solid var(--dept-${emp.department.toLowerCase()});">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <div style="width: 34px; height: 34px; border-radius: 50%; background: #0f172a; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 13px;">
+                        ${emp.name.charAt(0)}
+                      </div>
+                      <div>
+                        <div style="font-weight: 700; color: var(--text-main); font-size: 14px;">${emp.name}</div>
+                        <span class="badge badge-${emp.department.toLowerCase()}" style="font-size: 10px; margin-top: 2px;">${emp.department}</span>
+                      </div>
+                    </div>
+                    <span class="badge ${emp.active ? 'badge-on-schedule' : 'badge-delayed'}" style="font-size: 10px;">
+                      ${emp.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; font-size: 12px; background: var(--bg-hover); padding: 8px 12px; border-radius: var(--radius-sm);">
+                    <div>
+                      <span style="color: var(--text-muted); font-size: 10px; text-transform: uppercase; font-weight: 700; display: block;">Queue</span>
+                      <strong style="color: ${queueDays > 6 ? '#d97706' : 'var(--text-secondary)'}; font-family: var(--font-mono);">${queueDays} days</strong>
+                    </div>
+                    <div>
+                      <span style="color: var(--text-muted); font-size: 10px; text-transform: uppercase; font-weight: 700; display: block;">Overtime</span>
+                      <strong style="color: ${emp.overtimeAvailable ? '#059669' : 'var(--text-muted)'};">${emp.overtimeAvailable ? '✓ Available' : 'No'}</strong>
+                    </div>
+                  </div>
+
+                  ${(emp.secondaryDepartments || []).length > 0 ? `
+                    <div style="margin-bottom: 10px; font-size: 11px;">
+                      <span style="color: var(--text-muted);">Cross-skilled: </span>
+                      ${emp.secondaryDepartments.map(s => `<span class="badge badge-${s.toLowerCase()}" style="font-size: 9px; padding: 2px 6px;">${s}</span>`).join(' ')}
+                    </div>
+                  ` : ''}
+
+                  <div style="display: flex; gap: 8px; border-top: 1px solid var(--border-subtle); padding-top: 10px;">
+                    <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="window.Zoosh.Views.Team.openEditModal('${emp.id}')">
+                      Edit Profile
+                    </button>
+                    <button class="btn btn-sm ${emp.active ? 'btn-secondary' : 'btn-primary'}" style="flex: 1;" onclick="window.Zoosh.Views.Team.toggleActive('${emp.id}')">
+                      ${emp.active ? 'Deactivate' : 'Activate'}
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
         </div>
       </div>

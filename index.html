@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/gantt.css">
+  <link rel="stylesheet" href="css/mobile.css">
 </head>
 <body>
   <div id="app">
@@ -117,8 +118,27 @@
 
     <!-- Main View Area -->
     <main class="app-main">
-      <!-- Top Control Bar -->
-      <header class="control-topbar">
+      <!-- Mobile Compact Topbar (<768px) -->
+      <header class="mobile-topbar" id="mobile-topbar-el">
+        <div class="mobile-topbar-left">
+          <button id="mobile-back-btn" class="mobile-back-btn" style="display: none;" onclick="window.Zoosh.App.handleMobileBack()">
+            &larr;
+          </button>
+          <div class="mobile-topbar-title" id="mobile-topbar-title">Zoosh Production</div>
+        </div>
+        <div class="mobile-topbar-right">
+          <span id="mobile-cloud-badge" class="badge badge-on-schedule" style="font-size: 10px; padding: 2px 6px; cursor: pointer;" onclick="window.Zoosh.CloudSync.openConfigModal()">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block;"></span>
+            <span>Cloud</span>
+          </span>
+          <button class="btn btn-accent btn-sm" style="padding: 4px 8px; font-size: 11px;" onclick="window.Zoosh.AddSrlWizard.open()">
+            + SRL
+          </button>
+        </div>
+      </header>
+
+      <!-- Desktop Top Control Bar (>768px) -->
+      <header class="control-topbar desktop-only">
         <div class="topbar-left">
           <div class="date-badge">
             <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
@@ -148,6 +168,128 @@
         <!-- Rendered by active view controller -->
       </div>
     </main>
+
+    <!-- Mobile Fixed Bottom Navigation Bar (<768px) -->
+    <nav class="mobile-bottom-nav">
+      <button class="mobile-nav-btn active" data-view="overview" onclick="window.Zoosh.App.navigateTo('overview')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <rect x="3" y="3" width="7" height="9" rx="1"/>
+          <rect x="14" y="3" width="7" height="5" rx="1"/>
+          <rect x="14" y="12" width="7" height="9" rx="1"/>
+          <rect x="3" y="16" width="7" height="5" rx="1"/>
+        </svg>
+        <span>Overview</span>
+      </button>
+
+      <button class="mobile-nav-btn" data-view="projects" onclick="window.Zoosh.App.navigateTo('projects')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span>Projects</span>
+      </button>
+
+      <button class="mobile-nav-btn" data-view="schedule" onclick="window.Zoosh.App.navigateTo('schedule')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <span>Schedule</span>
+      </button>
+
+      <button class="mobile-nav-btn" data-view="team" onclick="window.Zoosh.App.navigateTo('team')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <span>Team</span>
+      </button>
+
+      <button class="mobile-nav-btn" data-view="more" onclick="window.Zoosh.Views.More.toggle()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="1"/>
+          <circle cx="19" cy="12" r="1"/>
+          <circle cx="5" cy="12" r="1"/>
+        </svg>
+        <span>More</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Mobile "More" Bottom Sheet Action Menu -->
+  <div id="mobile-more-sheet" class="mobile-bottom-sheet" onclick="if(event.target===this) window.Zoosh.Views.More.close()">
+    <div class="mobile-sheet-content">
+      <div class="mobile-sheet-handle"></div>
+      <div class="mobile-sheet-header">
+        <div class="mobile-sheet-title">Production Tools</div>
+        <button class="modal-close-btn" onclick="window.Zoosh.Views.More.close()">&times;</button>
+      </div>
+      <div class="mobile-sheet-body">
+        <div class="mobile-menu-item" onclick="window.Zoosh.Views.More.navigate('processes')">
+          <div class="mobile-menu-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            <span>Production Processes (Flow Types)</span>
+          </div>
+          <span>&rarr;</span>
+        </div>
+
+        <div class="mobile-menu-item" onclick="window.Zoosh.Views.More.navigate('manpower')">
+          <div class="mobile-menu-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+            </svg>
+            <span>Manpower &amp; Leave Log</span>
+          </div>
+          <span>&rarr;</span>
+        </div>
+
+        <div class="mobile-menu-item" onclick="window.Zoosh.Views.More.navigate('reports')">
+          <div class="mobile-menu-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+            <span>Factory Reports &amp; Analytics</span>
+          </div>
+          <span>&rarr;</span>
+        </div>
+
+        <div class="mobile-menu-item" onclick="window.Zoosh.Views.More.openCloudSettings()">
+          <div class="mobile-menu-icon">
+            <span style="font-size: 16px;">☁️</span>
+            <span>Cloud Sync (Supabase Settings)</span>
+          </div>
+          <span>&rarr;</span>
+        </div>
+
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin: 10px 0 4px 6px;">
+          Data &amp; Backup
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.More.exportData()">
+            📥 Export JSON
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.More.importData()">
+            📤 Import JSON
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.More.resetDemo()">
+            🔄 Reset Demo
+          </button>
+          <button class="btn btn-secondary btn-sm" style="color: #b91c1c;" onclick="window.Zoosh.Views.More.startFresh()">
+            🗑️ Clear Data
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Global Modal Mount -->
@@ -171,6 +313,7 @@
   <script src="js/components/addSrlWizard.js"></script>
   <script src="js/components/reallocateModal.js"></script>
   
+  <script src="js/views/more.js"></script>
   <script src="js/views/overview.js"></script>
   <script src="js/views/projects.js"></script>
   <script src="js/views/schedule.js"></script>

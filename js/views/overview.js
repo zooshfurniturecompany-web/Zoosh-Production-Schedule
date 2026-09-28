@@ -26,7 +26,8 @@ window.Zoosh.Views.Overview = {
     const displayDateStr = calendar.formatDisplayDate(config.CURRENT_DATE, true, true);
 
     container.innerHTML = `
-      <div class="view-header">
+      <!-- Desktop View Header (>768px) -->
+      <div class="view-header desktop-only">
         <div>
           <div style="font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted);">
             Good morning &bull; Factory Director
@@ -44,8 +45,76 @@ window.Zoosh.Views.Overview = {
         </div>
       </div>
 
-      <!-- Live KPI Metric Cards -->
-      <div class="metrics-grid">
+      <!-- Mobile Greeting (<768px) -->
+      <div class="mobile-only" style="margin-bottom: 16px;">
+        <div style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Good morning</div>
+        <h2 style="font-size: 20px; font-weight: 800; color: var(--text-main); margin: 2px 0;">Production Overview</h2>
+        <div style="font-size: 12.5px; color: var(--text-secondary);">${displayDateStr}</div>
+      </div>
+
+      <!-- Mobile Swipeable Horizontal KPI Carousel (<768px) -->
+      <div class="mobile-kpi-scroll mobile-only">
+        <div class="mobile-kpi-card">
+          <div class="metric-card-label">Active Projects</div>
+          <div class="metric-card-value" style="color: var(--accent-blue);">${activeProjects}</div>
+        </div>
+        <div class="mobile-kpi-card ${atRiskProjects > 0 ? 'warning' : ''}">
+          <div class="metric-card-label">At Risk</div>
+          <div class="metric-card-value">${atRiskProjects}</div>
+        </div>
+        <div class="mobile-kpi-card ${delayedProjects > 0 ? 'danger' : ''}">
+          <div class="metric-card-label">Delayed</div>
+          <div class="metric-card-value">${delayedProjects}</div>
+        </div>
+        <div class="mobile-kpi-card success">
+          <div class="metric-card-label">Today's Tasks</div>
+          <div class="metric-card-value">${todayTasks.length}</div>
+        </div>
+        <div class="mobile-kpi-card">
+          <div class="metric-card-label">Employees</div>
+          <div class="metric-card-value">${totalEmployees}</div>
+        </div>
+      </div>
+
+      <!-- Mobile Today's Production Section (<768px) -->
+      <div class="mobile-only" style="margin-bottom: 24px;">
+        <div class="mobile-section-title">
+          <span>Today's Production</span>
+          <span style="font-size: 11px; font-weight: 500; color: var(--text-muted);">${todayTasks.length} active tasks</span>
+        </div>
+        ${this.renderMobileTodayFeed(todayTasks)}
+      </div>
+
+      <!-- Mobile Needs Attention Section (<768px) -->
+      ${alerts.length > 0 ? `
+        <div class="mobile-only" style="margin-bottom: 24px;">
+          <div class="mobile-section-title">
+            <span>Needs Attention</span>
+            <span class="badge badge-at-risk" style="font-size: 10px;">${alerts.length}</span>
+          </div>
+          <div class="mobile-needs-attention">
+            ${alerts.map(a => `
+              <div class="mobile-alert-card ${a.type === 'danger' ? 'danger' : ''}">
+                <div class="mobile-alert-title">
+                  <span>${a.type === 'danger' ? '🚨' : '⚠️'}</span>
+                  <span>${a.title}</span>
+                </div>
+                <div class="mobile-alert-text">${a.message}</div>
+                <div class="mobile-alert-action">
+                  <button class="btn btn-sm ${a.type === 'danger' ? 'btn-danger' : 'btn-secondary'}" 
+                    style="font-size: 11.5px; font-weight: 700;"
+                    onclick="window.Zoosh.Views.Overview.handleAlertAction('${a.actionType}', '${a.targetId}')">
+                    ${a.actionLabel} &rarr;
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Desktop Live KPI Metric Cards (>768px) -->
+      <div class="metrics-grid desktop-only">
         <div class="metric-card">
           <div class="metric-card-label">Total Projects</div>
           <div class="metric-card-value">${totalProjects}</div>
@@ -78,9 +147,9 @@ window.Zoosh.Views.Overview = {
         </div>
       </div>
 
-      <!-- Actionable Factory Alerts -->
+      <!-- Desktop Actionable Factory Alerts (>768px) -->
       ${alerts.length > 0 ? `
-        <div class="alerts-section">
+        <div class="alerts-section desktop-only">
           <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 2px;">
             Action Required Alerts (${alerts.length})
           </div>
@@ -101,8 +170,8 @@ window.Zoosh.Views.Overview = {
         </div>
       ` : ''}
 
-      <!-- Today's Production Live Board -->
-      <div class="card-panel">
+      <!-- Desktop Today's Production Live Board (>768px) -->
+      <div class="card-panel desktop-only">
         <div class="card-panel-header">
           <div>
             <div class="card-panel-title">Today's Production</div>
@@ -220,6 +289,57 @@ window.Zoosh.Views.Overview = {
             </button>
           </div>
         ` : ''}
+      </div>
+    `;
+  },
+
+  renderMobileTodayFeed(todayTasks) {
+    if (todayTasks.length === 0) {
+      return `
+        <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 30px; text-align: center; color: var(--text-muted); font-size: 13px;">
+          No active tasks scheduled for today.
+        </div>
+      `;
+    }
+
+    return `
+      <div class="mobile-today-feed">
+        ${todayTasks.map(task => {
+          const deptClass = `dept-${task.department.toLowerCase()}`;
+          return `
+            <div class="mobile-task-card ${deptClass}" onclick="window.Zoosh.Views.Schedule.inspectProcess('${task.processId}')">
+              <div class="mobile-task-card-header">
+                <span class="mobile-task-srl">SRL ${task.srlNumber}</span>
+                <span class="badge badge-${task.department.toLowerCase()}" style="font-size: 10px;">${task.department}</span>
+              </div>
+              
+              <div class="mobile-task-title">${task.furnitureName}</div>
+              
+              <div class="mobile-task-sub">
+                <span>👤 <strong>${task.employeeName}</strong></span>
+                <span>&bull;</span>
+                <span>${task.projectName}</span>
+              </div>
+
+              <div class="mobile-task-footer">
+                <span class="mobile-task-time">${task.timeStr}</span>
+                <span class="mobile-task-status-pill" style="color: ${task.status === 'COMPLETED' ? '#059669' : '#2563eb'};">
+                  <span>●</span>
+                  <span>${task.status === 'COMPLETED' ? 'COMPLETED' : 'IN PRODUCTION'}</span>
+                </span>
+              </div>
+
+              ${task.hasLeaveConflict ? `
+                <div style="margin-top: 10px; padding: 6px 10px; background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-sm); font-size: 11px; color: #92400e; display: flex; align-items: center; justify-content: space-between;" onclick="event.stopPropagation();">
+                  <span>⚠️ Worker on leave</span>
+                  <button class="btn btn-sm btn-accent" style="padding: 2px 8px; font-size: 10px;" onclick="window.Zoosh.ReallocateModal.open('${task.processId}')">
+                    Reallocate &rarr;
+                  </button>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
   },

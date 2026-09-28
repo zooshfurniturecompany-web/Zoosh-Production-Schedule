@@ -21,12 +21,19 @@ window.Zoosh.Views.Schedule = {
   searchQuery: '',
 
   render(container) {
+    // If on mobile viewport, default to 'today' view mode
+    if (typeof window !== 'undefined' && window.innerWidth <= 768 && !this.mobileInitialized) {
+      this.zoomMode = 'today';
+      this.mobileInitialized = true;
+    }
+
     const calendar = window.Zoosh.Calendar;
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const currentMonthLabel = `${months[this.currentMonth]} ${this.currentYear}`;
 
     container.innerHTML = `
-      <div class="view-header" style="margin-bottom: 16px;">
+      <!-- Desktop Header (>768px) -->
+      <div class="view-header desktop-only" style="margin-bottom: 16px;">
         <div>
           <h2 class="view-header-title">Production Schedule</h2>
           <div class="view-header-subtitle">Real-time factory timeline &amp; forward process sequencing</div>
@@ -38,9 +45,27 @@ window.Zoosh.Views.Schedule = {
         </div>
       </div>
 
+      <!-- Mobile View Switcher (<768px) -->
+      <div class="mobile-only" style="margin-bottom: 14px;">
+        <div class="btn-group" style="width: 100%; display: flex;">
+          <button class="btn-group-btn ${this.zoomMode === 'today' ? 'active' : ''}" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;"
+            onclick="window.Zoosh.Views.Schedule.setZoomMode('today')">
+            Today
+          </button>
+          <button class="btn-group-btn ${this.zoomMode === 'week' ? 'active' : ''}" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;"
+            onclick="window.Zoosh.Views.Schedule.setZoomMode('week')">
+            Week
+          </button>
+          <button class="btn-group-btn ${this.zoomMode === 'month' ? 'active' : ''}" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;"
+            onclick="window.Zoosh.Views.Schedule.setZoomMode('month')">
+            Month
+          </button>
+        </div>
+      </div>
+
       <div class="schedule-container">
-        <!-- Controls Toolbar -->
-        <div class="schedule-toolbar">
+        <!-- Desktop Controls Toolbar (>768px) -->
+        <div class="schedule-toolbar desktop-only">
           <div class="schedule-toolbar-left">
             <!-- View Mode Switcher -->
             <div class="btn-group">
@@ -90,8 +115,8 @@ window.Zoosh.Views.Schedule = {
           </div>
         </div>
 
-        <!-- Filters Bar -->
-        <div class="schedule-filters-bar">
+        <!-- Filters Bar (Shown on desktop or when week/month zoom active) -->
+        <div class="schedule-filters-bar ${this.zoomMode === 'today' ? 'desktop-only' : ''}">
           <input type="text" class="search-input-box" placeholder="🔍 Search SRL, furniture, worker..." 
             value="${this.searchQuery}" 
             oninput="window.Zoosh.Views.Schedule.searchQuery = this.value; window.Zoosh.Views.Schedule.refreshGantt()" />
@@ -154,6 +179,7 @@ window.Zoosh.Views.Schedule = {
 
   renderGanttGrid() {
     const calendar = window.Zoosh.Calendar;
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
     let days = [];
 
     if (this.zoomMode === 'month') {
@@ -161,6 +187,9 @@ window.Zoosh.Views.Schedule = {
     } else if (this.zoomMode === 'week') {
       days = calendar.getWeekDays(this.centerDateStr);
     } else if (this.zoomMode === 'today') {
+      if (isMobile) {
+        return this.renderMobileTodayChronological();
+      }
       // Single day, show hourly
       return this.renderHourlyTodayGrid();
     }
@@ -178,6 +207,11 @@ window.Zoosh.Views.Schedule = {
     const rows = this.getGanttRows(state);
 
     return `
+      ${isMobile ? `
+        <div class="mobile-only" style="padding: 6px 12px; margin-bottom: 10px; background: #f1f5f9; border-radius: var(--radius-sm); font-size: 11px; color: var(--text-muted); text-align: center; border: 1px dashed var(--border-light);">
+          👈 Swipe horizontally to navigate full factory Gantt timeline 👉
+        </div>
+      ` : ''}
       <div style="min-width: ${220 + totalWidth}px; position: relative;">
         <!-- Header -->
         <div class="gantt-header-row">
@@ -204,6 +238,91 @@ window.Zoosh.Views.Schedule = {
         <div style="position: relative;">
           ${rows.map(row => this.renderGanttRow(row, days, dayWidth, totalWidth)).join('')}
         </div>
+      </div>
+    `;
+  },
+
+  renderMobileTodayChronological() {
+    const config = window.Zoosh.Config;
+    const state = window.Zoosh.State.getState();
+    const todayTasks = (state.computed && state.computed.todayTasks) || [];
+
+    if (todayTasks.length === 0) {
+      return `
+        <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 36px 20px; text-align: center; color: var(--text-muted); font-size: 13px;">
+          <div style="font-size: 28px; margin-bottom: 8px;">📋</div>
+          <div style="font-weight: 700; color: var(--text-main); margin-bottom: 4px;">No Tasks Scheduled Today</div>
+          <div>All factory processes are either completed or scheduled for upcoming dates.</div>
+        </div>
+      `;
+    }
+
+    // Sort tasks chronologically by timeStr
+    const sortedTasks = [...todayTasks].sort((a, b) => {
+      return (a.timeStr || '').localeCompare(b.timeStr || '');
+    });
+
+    // Group tasks by timeblock
+    const timeBlocks = {};
+    sortedTasks.forEach(task => {
+      const blockKey = task.timeStr || 'Today Shift';
+      if (!timeBlocks[blockKey]) {
+        timeBlocks[blockKey] = [];
+      }
+      timeBlocks[blockKey].push(task);
+    });
+
+    return `
+      <div style="padding: 4px 0 20px 0;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+          <div style="font-size: 13px; font-weight: 700; color: var(--text-secondary);">
+            📅 ${window.Zoosh.Calendar.formatDisplayDate(config.CURRENT_DATE, true, false)}
+          </div>
+          <span class="badge badge-success" style="font-size: 11px;">${sortedTasks.length} active tasks</span>
+        </div>
+
+        ${Object.entries(timeBlocks).map(([timeLabel, tasks]) => `
+          <div class="mobile-schedule-timeblock">
+            <div class="mobile-time-heading">
+              <span>🕒 ${timeLabel}</span>
+            </div>
+            ${tasks.map(task => {
+              const deptClass = `dept-${task.department.toLowerCase()}`;
+              return `
+                <div class="mobile-task-card ${deptClass}" onclick="window.Zoosh.Views.Schedule.inspectProcess('${task.processId}')">
+                  <div class="mobile-task-card-header">
+                    <span class="mobile-task-srl">SRL ${task.srlNumber}</span>
+                    <span class="badge badge-${task.department.toLowerCase()}" style="font-size: 10px;">${task.department}</span>
+                  </div>
+
+                  <div class="mobile-task-title">${task.furnitureName}</div>
+
+                  <div class="mobile-task-sub">
+                    <span>👤 <strong>${task.employeeName}</strong></span>
+                    <span>&bull;</span>
+                    <span>${task.projectName}</span>
+                  </div>
+
+                  <div class="mobile-task-footer">
+                    <span class="mobile-task-time">⏱️ ${task.hoursToday}h scheduled</span>
+                    <span class="mobile-task-status-pill badge badge-${task.status === 'COMPLETED' ? 'success' : (task.status === 'IN_PROGRESS' ? 'info' : 'secondary')}">
+                      ${task.status}
+                    </span>
+                  </div>
+
+                  ${task.hasLeaveConflict ? `
+                    <div style="margin-top: 8px; padding: 6px 10px; background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-sm); font-size: 11.5px; color: #92400e; display: flex; align-items: center; justify-content: space-between;">
+                      <span>⚠️ <strong>Leave Conflict:</strong> Worker on leave</span>
+                      <button style="border: none; background: transparent; color: #b45309; font-weight: 700; cursor: pointer; font-size: 11px;" onclick="event.stopPropagation(); window.Zoosh.ReallocateModal.open('${task.processId}')">
+                        Reallocate &rarr;
+                      </button>
+                    </div>
+                  ` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `).join('')}
       </div>
     `;
   },
