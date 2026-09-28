@@ -81,12 +81,27 @@ window.Zoosh.State = {
    * Recalculates all schedules, dependencies, and project deadline statuses,
    * persists to localStorage, and notifies listeners.
    */
-  recalculate() {
+  recalculate(skipCloudPush = false) {
     if (window.Zoosh.Scheduler) {
       this._state = window.Zoosh.Scheduler.recalculateAll(this._state);
     }
     this.persist();
     this.notify();
+
+    // Push to Supabase Realtime if cloud sync is connected
+    if (!skipCloudPush && window.Zoosh.CloudSync && window.Zoosh.CloudSync.isConnected) {
+      window.Zoosh.CloudSync.pushState(this._state);
+    }
+  },
+
+  /**
+   * Applies state received from remote user via Supabase Realtime
+   */
+  applyRemoteState(remoteState, author = 'Cloud') {
+    if (!remoteState || !remoteState.projects) return;
+    this._state = remoteState;
+    // Skip pushing back to avoid ping-pong loop
+    this.recalculate(true);
   },
 
   // --- CRUD Operations ---

@@ -124,6 +124,10 @@
             <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
             <span>Monday, 28 September 2026</span>
           </div>
+          <span id="cloud-sync-badge" class="badge badge-at-risk" style="cursor: pointer;" onclick="window.Zoosh.CloudSync.openConfigModal()">
+            <span style="width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span>
+            <span>Local Mode (Connect Cloud)</span>
+          </span>
           <span id="topbar-alerts-count" class="badge badge-at-risk" style="display: none; cursor: pointer;" onclick="window.Zoosh.App.navigateTo('overview')">
             0 alerts
           </span>
@@ -151,12 +155,16 @@
     <div id="modal-container" class="modal-dialog"></div>
   </div>
 
+  <!-- Supabase JS Client (for real-time multi-user sync) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <!-- Application Scripts -->
   <script src="js/config.js"></script>
   <script src="js/data/demoData.js"></script>
   <script src="js/engine/calendar.js"></script>
   <script src="js/engine/scheduler.js"></script>
   <script src="js/engine/allocator.js"></script>
+  <script src="js/supabase.js"></script>
   <script src="js/state.js"></script>
   
   <script src="js/components/modal.js"></script>

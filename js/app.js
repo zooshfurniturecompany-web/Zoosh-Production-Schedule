@@ -16,7 +16,12 @@ window.Zoosh.App = {
     // 2. Initialize Modals
     window.Zoosh.Modal.init();
 
-    // 3. Setup Navigation Event Listeners
+    // 3. Initialize Supabase Cloud Sync (if configured)
+    if (window.Zoosh.CloudSync) {
+      window.Zoosh.CloudSync.init();
+    }
+
+    // 4. Setup Navigation Event Listeners
     this.setupNavigation();
 
     // 4. Setup Toolbar & Import/Export Actions

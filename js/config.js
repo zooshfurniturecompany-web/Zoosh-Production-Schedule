@@ -10,6 +10,10 @@ window.Zoosh.Config = {
   VERSION: '1.0.0',
   STORAGE_KEY: 'ZOOSH_PRODUCTION_V1_STORE',
   
+  // Optional Cloud Sync via Supabase (can also be configured via in-app UI)
+  SUPABASE_URL: '',
+  SUPABASE_ANON_KEY: '',
+  
   // Base factory calendar settings
   CURRENT_DATE: '2026-09-28', // Monday, 28 September 2026
   STANDARD_WORK_HOURS_PER_DAY: 8,
