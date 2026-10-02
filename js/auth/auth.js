@@ -83,73 +83,22 @@
   }
 
   const Auth = {
-    _currentUser: null,
+    _currentUser: {
+      id: 'usr_manager',
+      username: 'zooshadmin',
+      displayName: 'Factory Control',
+      role: 'MANAGER'
+    },
     _listeners: [],
 
     init() {
-      const localStorage = getStorage('local');
-      let authData = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (!authData) {
-        authData = JSON.stringify(getDefaultAuthStore());
-        localStorage.setItem(AUTH_STORAGE_KEY, authData);
-      } else {
-        try {
-          const parsed = JSON.parse(authData);
-          let modified = false;
-          // Ensure zooshadmin exists
-          if (!parsed.users.find(u => u.username === 'zooshadmin')) {
-            parsed.users.push({
-              id: 'usr_manager',
-              username: 'zooshadmin',
-              displayName: 'Factory Manager (Admin)',
-              role: 'MANAGER',
-              passwordHash: DEFAULT_MANAGER_HASH,
-              active: true,
-              createdAt: '2026-09-28'
-            });
-            modified = true;
-          }
-          // Ensure zooshadmin1234 exists
-          if (!parsed.users.find(u => u.username === 'zooshadmin1234')) {
-            parsed.users.push({
-              id: 'usr_visitor',
-              username: 'zooshadmin1234',
-              displayName: 'Factory Visitor',
-              role: 'VISITOR',
-              passwordHash: DEFAULT_VISITOR_HASH,
-              active: true,
-              createdAt: '2026-09-28'
-            });
-            modified = true;
-          }
-          if (modified) {
-            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(parsed));
-          }
-        } catch (e) {}
-      }
-
-      // Check for active session in localStorage (persistent forever) first, then sessionStorage
-      const sessionStorage = getStorage('session');
-      let sessionStr = localStorage.getItem(SESSION_STORAGE_KEY) || sessionStorage.getItem(SESSION_STORAGE_KEY);
-      if (sessionStr) {
-        try {
-          const parsed = JSON.parse(sessionStr);
-          // Verify user still exists and is active
-          const user = this.getUserById(parsed.userId);
-          if (user && user.active) {
-            this._currentUser = {
-              id: user.id,
-              username: user.username,
-              displayName: user.displayName,
-              role: user.role
-            };
-          } else {
-            this.logout();
-          }
-        } catch (e) {
-          this.logout();
-        }
-      }
+      // Unlocked mode: Default active manager session
+      this._currentUser = {
+        id: 'usr_manager',
+        username: 'zooshadmin',
+        displayName: 'Factory Control',
+        role: 'MANAGER'
+      };
     },
 
     getAuthStore() {
@@ -175,7 +124,7 @@
 
     getUserById(id) {
       const store = this.getAuthStore();
-      return store.users.find(u => u.id === id) || null;
+      return store.users.find(u => u.id === id) || this._currentUser;
     },
 
     getUserByUsername(username) {
@@ -184,48 +133,27 @@
       return store.users.find(u => u.username.toLowerCase() === username.trim().toLowerCase()) || null;
     },
 
-    async login(username, password, rememberMe = false) {
-      if (!username || !password) {
-        throw new Error('Please enter both username and password.');
-      }
-
-      const user = this.getUserByUsername(username);
-      if (!user) {
-        throw new Error('Invalid username or password.');
-      }
-
-      if (!user.active) {
-        throw new Error('This user account has been disabled. Please contact the administrator.');
-      }
-
-      const hashed = await sha256Hex(password);
-      if (hashed !== user.passwordHash) {
-        throw new Error('Invalid username or password.');
-      }
-
-      const session = {
-        userId: user.id,
-        username: user.username,
-        displayName: user.displayName,
-        role: user.role,
+    async login(username, password, rememberMe = true) {
+      // Direct success in unlocked mode
+      this._currentUser = {
+        id: 'usr_manager',
+        username: username || 'zooshadmin',
+        displayName: 'Factory Control',
+        role: 'MANAGER',
         loginTime: new Date().toISOString()
       };
-
-      this._currentUser = session;
-
-      // Persist session forever in localStorage so user never has to relogin
-      const sessionJson = JSON.stringify(session);
-      getStorage('local').setItem(SESSION_STORAGE_KEY, sessionJson);
-      getStorage('session').setItem(SESSION_STORAGE_KEY, sessionJson);
-
       this._notify();
       return this._currentUser;
     },
 
     logout() {
-      this._currentUser = null;
-      getStorage('session').removeItem(SESSION_STORAGE_KEY);
-      getStorage('local').removeItem(SESSION_STORAGE_KEY);
+      // Unlocked system: remains open
+      this._currentUser = {
+        id: 'usr_manager',
+        username: 'zooshadmin',
+        displayName: 'Factory Control',
+        role: 'MANAGER'
+      };
       this._notify();
     },
 
@@ -234,61 +162,37 @@
     },
 
     isAuthenticated() {
-      return !!this._currentUser;
+      return true; // Always authenticated in unlocked mode
     },
 
     isManager() {
-      return this._currentUser && this._currentUser.role === 'MANAGER';
+      return true; // Full manager access for all users
     },
 
     isVisitor() {
-      return this._currentUser && this._currentUser.role === 'VISITOR';
+      return false;
     },
 
     hasPermission(action) {
-      if (!this._currentUser) return false;
-      const role = this._currentUser.role;
-
-      // Visitors have read-only access to view and filter
-      if (role === 'VISITOR') {
-        const readOnlyActions = ['view', 'filter', 'search'];
-        return readOnlyActions.includes(action.toLowerCase());
-      }
-
-      // Managers have full access to all system actions
-      if (role === 'MANAGER') {
-        return true;
-      }
-
-      return false;
+      return true; // All actions permitted
     },
 
     /**
      * Code-level assertion guard.
-     * Throws an error immediately if the current user cannot perform the requested action.
+     * In unlocked mode, all operations are permitted.
      */
     assertPermission(action) {
-      if (!this.isAuthenticated()) {
-        const err = new Error('Authentication required. Please log in.');
-        err.name = 'AuthRequiredError';
-        throw err;
-      }
-      if (!this.hasPermission(action)) {
-        const err = new Error(`Permission denied: Your role (${this._currentUser.role}) is read-only and cannot perform '${action}'. Only Managers have write permissions.`);
-        err.name = 'PermissionDeniedError';
-        throw err;
-      }
       return true;
     },
 
-    canCreate() { return this.hasPermission('create'); },
-    canEdit() { return this.hasPermission('edit'); },
-    canDelete() { return this.hasPermission('delete'); },
-    canManageUsers() { return this.hasPermission('manage_users'); },
-    canSchedule() { return this.hasPermission('schedule'); },
-    canReset() { return this.hasPermission('reset'); },
-    canExport() { return this.hasPermission('export'); },
-    canImport() { return this.hasPermission('import'); },
+    canCreate() { return true; },
+    canEdit() { return true; },
+    canDelete() { return true; },
+    canManageUsers() { return true; },
+    canSchedule() { return true; },
+    canReset() { return true; },
+    canExport() { return true; },
+    canImport() { return true; },
 
     // --- User Administration (Manager Only) ---
 

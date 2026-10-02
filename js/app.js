@@ -17,48 +17,39 @@ window.Zoosh.App = {
   init() {
     console.log('Initializing ZOOSH Production Scheduling System...');
 
-    // 1. Initialize Authentication module
+    // 1. Initialize Authentication module in unlocked mode
     if (window.Zoosh.Auth) {
       window.Zoosh.Auth.init();
     }
 
-    // 2. Check Authentication Gateway
-    if (!window.Zoosh.Auth || !window.Zoosh.Auth.isAuthenticated()) {
-      this.showLoginScreen();
-      return;
-    }
+    // 2. Unlocked Mode: Ensure login container is hidden and main app is visible
+    const loginContainer = document.getElementById('login-container');
+    if (loginContainer) loginContainer.style.display = 'none';
 
-    // 3. User is authenticated, boot the application
+    const appEl = document.getElementById('app');
+    if (appEl) appEl.style.display = 'flex';
+
+    // 3. Directly boot application (no login required)
     this.bootApp();
   },
 
   showLoginScreen() {
-    const appEl = document.getElementById('app');
+    // Unlocked mode: ensure app is visible, never display login screen
     const loginContainer = document.getElementById('login-container');
-    if (appEl) appEl.style.display = 'none';
-    if (loginContainer) {
-      loginContainer.style.display = 'block';
-      if (window.Zoosh.Views.Login) {
-        window.Zoosh.Views.Login.render(loginContainer);
-      }
+    if (loginContainer) loginContainer.style.display = 'none';
+    const appEl = document.getElementById('app');
+    if (appEl) appEl.style.display = 'flex';
+    if (!this.isBooted) {
+      this.bootApp();
     }
   },
 
   onLoginSuccess() {
-    const loginContainer = document.getElementById('login-container');
-    const appEl = document.getElementById('app');
-    if (loginContainer) loginContainer.style.display = 'none';
-    if (appEl) appEl.style.display = 'flex';
-
     this.bootApp();
   },
 
   logout() {
-    if (window.Zoosh.Auth) {
-      window.Zoosh.Auth.logout();
-    }
-    this.showLoginScreen();
-    this.showToast('You have been logged out.');
+    this.showToast('System is unlocked (full open access)');
   },
 
   bootApp() {
@@ -97,24 +88,19 @@ window.Zoosh.App = {
   },
 
   updateUserBadges(user) {
-    if (!user) return;
-
     // Desktop Topbar User Badge
     const topbarProfile = document.getElementById('user-topbar-profile');
     if (topbarProfile) {
       topbarProfile.innerHTML = `
-        <div class="user-avatar-badge">${user.username.charAt(0).toUpperCase()}</div>
+        <div class="user-avatar-badge" style="background: #10b981;" title="Unlocked Factory Access">⚡</div>
         <div style="font-size: 12px; line-height: 1.2;">
-          <strong style="color: var(--text-main); display: block;">${user.displayName || user.username}</strong>
-          <span class="badge ${user.role === 'MANAGER' ? 'badge-primary' : 'badge-upholstery'}" style="font-size: 9.5px; padding: 1px 5px;">
-            ${user.role}
+          <strong style="color: var(--text-main); display: block;">Factory Control</strong>
+          <span class="badge badge-primary" style="font-size: 9.5px; padding: 1px 5px; background: #e0f2fe; color: #0369a1;">
+            FULL ACCESS
           </span>
         </div>
-        <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 11px; margin-left: 4px;" onclick="window.Zoosh.App.navigateTo('settings')" title="Account Settings & Users">
+        <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 11px; margin-left: 4px;" onclick="window.Zoosh.App.navigateTo('settings')" title="Factory Data & Database">
           ⚙️
-        </button>
-        <button class="btn-logout" style="color: #dc2626; border-color: #fecaca; background: #fff5f5; padding: 4px 8px;" onclick="window.Zoosh.App.logout()" title="Sign Out">
-          Logout
         </button>
       `;
     }
@@ -123,11 +109,8 @@ window.Zoosh.App = {
     const mobileUserEl = document.getElementById('mobile-user-profile');
     if (mobileUserEl) {
       mobileUserEl.innerHTML = `
-        <button class="btn btn-secondary btn-sm" style="padding: 3px 6px; font-size: 10px;" onclick="window.Zoosh.App.navigateTo('settings')">
+        <button class="btn btn-secondary btn-sm" style="padding: 3px 6px; font-size: 10px;" onclick="window.Zoosh.App.navigateTo('settings')" title="Settings">
           ⚙️
-        </button>
-        <button class="btn btn-secondary btn-sm" style="padding: 3px 6px; font-size: 10px; color: #dc2626;" onclick="window.Zoosh.App.logout()">
-          Logout
         </button>
       `;
     }
@@ -137,31 +120,29 @@ window.Zoosh.App = {
     if (sidebarUserBadge) {
       sidebarUserBadge.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 28px; height: 28px; border-radius: 50%; background: #ffffff; color: #0f172a; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center;">
-            ${user.username.charAt(0).toUpperCase()}
+          <div style="width: 28px; height: 28px; border-radius: 50%; background: #10b981; color: #ffffff; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center;">
+            ⚡
           </div>
           <div>
-            <div style="font-size: 12px; font-weight: 700; color: #ffffff;">${user.displayName || user.username}</div>
-            <div style="font-size: 10px; color: #94a3b8;">${user.role}</div>
+            <div style="font-size: 12px; font-weight: 700; color: #ffffff;">Factory Control</div>
+            <div style="font-size: 10px; color: #94a3b8;">Unlocked &bull; Open Access</div>
           </div>
         </div>
-        <button class="btn-logout" onclick="window.Zoosh.App.logout()">Logout</button>
       `;
     }
 
-    // Adjust visibility of write buttons in desktop topbar
-    const canCreate = window.Zoosh.Auth ? window.Zoosh.Auth.canCreate() : true;
+    // Ensure all write buttons in desktop topbar are visible
     const btnNewClient = document.getElementById('topbar-btn-new-client');
     const btnNewProj = document.getElementById('topbar-btn-new-proj');
     const btnAddFurn = document.getElementById('topbar-btn-add-furn');
     const mobileAddFurn = document.getElementById('mobile-btn-add-furniture');
     const sidebarControls = document.getElementById('sidebar-data-controls');
 
-    if (btnNewClient) btnNewClient.style.display = canCreate ? 'inline-flex' : 'none';
-    if (btnNewProj) btnNewProj.style.display = canCreate ? 'inline-flex' : 'none';
-    if (btnAddFurn) btnAddFurn.style.display = canCreate ? 'inline-flex' : 'none';
-    if (mobileAddFurn) mobileAddFurn.style.display = canCreate ? 'inline-flex' : 'none';
-    if (sidebarControls) sidebarControls.style.display = canCreate ? 'block' : 'none';
+    if (btnNewClient) btnNewClient.style.display = 'inline-flex';
+    if (btnNewProj) btnNewProj.style.display = 'inline-flex';
+    if (btnAddFurn) btnAddFurn.style.display = 'inline-flex';
+    if (mobileAddFurn) mobileAddFurn.style.display = 'inline-flex';
+    if (sidebarControls) sidebarControls.style.display = 'block';
   },
 
   setupNavigation() {
