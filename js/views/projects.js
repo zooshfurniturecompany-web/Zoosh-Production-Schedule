@@ -49,9 +49,6 @@ window.Zoosh.Views.Projects = {
         </div>
         <div style="display: flex; gap: 10px;">
           ${canCreate ? `
-            <button class="btn btn-secondary" onclick="window.Zoosh.AddClientModal.open()">
-              <span>+</span> New Client / SRL
-            </button>
             <button class="btn btn-primary" onclick="window.Zoosh.Views.Projects.openAddModal()">
               <span>+</span> New Project
             </button>
@@ -295,8 +292,8 @@ window.Zoosh.Views.Projects = {
           No clients registered yet.
           ${canEdit ? `
             <div style="margin-top: 14px;">
-              <button class="btn btn-primary btn-sm" onclick="window.Zoosh.AddClientModal.open()">
-                + New Client / SRL
+              <button class="btn btn-primary btn-sm" onclick="window.Zoosh.Views.Projects.openAddModal()">
+                + New Project
               </button>
             </div>
           ` : ''}
@@ -309,8 +306,8 @@ window.Zoosh.Views.Projects = {
         <div class="card-panel-header">
           <div class="card-panel-title">Client Directory &bull; Customer SRL Identifiers</div>
           ${canEdit ? `
-            <button class="btn btn-primary btn-sm" onclick="window.Zoosh.AddClientModal.open()">
-              + New Client / SRL
+            <button class="btn btn-primary btn-sm" onclick="window.Zoosh.Views.Projects.openAddModal()">
+              + New Project
             </button>
           ` : ''}
         </div>
@@ -882,6 +879,63 @@ window.Zoosh.Views.Projects = {
   // MODALS: ADD / EDIT / DELETE
   // ==========================================
 
+  newProjClientMode: 'NEW',
+
+  setNewProjClientMode(mode) {
+    this.newProjClientMode = mode;
+    const newSection = document.getElementById('new-client-fields-section');
+    const existingSection = document.getElementById('existing-client-fields-section');
+    const btnNew = document.getElementById('client-mode-btn-new');
+    const btnExisting = document.getElementById('client-mode-btn-existing');
+
+    if (mode === 'NEW') {
+      if (newSection) newSection.style.display = 'block';
+      if (existingSection) existingSection.style.display = 'none';
+      if (btnNew) {
+        btnNew.className = 'btn btn-primary btn-sm';
+      }
+      if (btnExisting) {
+        btnExisting.className = 'btn btn-secondary btn-sm';
+      }
+      const nameInput = document.getElementById('new-client-name');
+      if (nameInput) nameInput.focus();
+    } else {
+      if (newSection) newSection.style.display = 'none';
+      if (existingSection) existingSection.style.display = 'block';
+      if (btnNew) {
+        btnNew.className = 'btn btn-secondary btn-sm';
+      }
+      if (btnExisting) {
+        btnExisting.className = 'btn btn-primary btn-sm';
+      }
+    }
+  },
+
+  handleClientNameInput(val) {
+    const projNameInput = document.getElementById('new-proj-name');
+    const locInput = document.getElementById('new-client-location');
+    if (projNameInput && !projNameInput.dataset.userEdited) {
+      const loc = locInput ? locInput.value.trim() : '';
+      projNameInput.value = val ? (loc ? `${val.trim()} - ${loc}` : `${val.trim()} Project`) : '';
+    }
+  },
+
+  handleClientLocationInput(val) {
+    const projLocInput = document.getElementById('new-proj-location');
+    const projNameInput = document.getElementById('new-proj-name');
+    const nameInput = document.getElementById('new-client-name');
+
+    if (projLocInput && !projLocInput.dataset.userEdited) {
+      projLocInput.value = val;
+    }
+    if (projNameInput && !projNameInput.dataset.userEdited && nameInput) {
+      const name = nameInput.value.trim();
+      if (name) {
+        projNameInput.value = val ? `${name} - ${val.trim()}` : `${name} Project`;
+      }
+    }
+  },
+
   openAddModal(preselectedClientId = '') {
     if (window.Zoosh.Auth && !window.Zoosh.Auth.canCreate()) {
       alert('Permission Denied: Only Managers can create projects.');
@@ -891,80 +945,250 @@ window.Zoosh.Views.Projects = {
     const state = window.Zoosh.State.getState();
     const config = window.Zoosh.Config;
     const clients = state.clients || [];
+    const nextSrl = window.Zoosh.State.getNextClientSrl ? window.Zoosh.State.getNextClientSrl() : 101;
 
-    if (clients.length === 0) {
-      alert('No clients found. Please create a Client / SRL first before creating a project.');
-      window.Zoosh.AddClientModal.open();
-      return;
-    }
+    // Determine initial client mode: If preselectedClientId was provided and valid, use EXISTING; otherwise default to NEW
+    const initialMode = (preselectedClientId && clients.some(c => c.id === preselectedClientId)) 
+      ? 'EXISTING' 
+      : 'NEW';
+    this.newProjClientMode = initialMode;
 
-    const title = 'Create New Factory Project';
+    const title = 'Create New Project / Client';
     const bodyHtml = `
       <div style="display: flex; flex-direction: column; gap: 14px;">
-        <div class="form-group">
-          <label class="form-label">Client / Customer (SRL)</label>
-          <select id="new-proj-client-id" class="form-input">
-            ${clients.map(c => `
-              <option value="${c.id}" ${c.id === preselectedClientId ? 'selected' : ''}>
-                ${c.name} — SRL ${c.srl} (${c.location || 'Factory Floor'})
-              </option>
-            `).join('')}
-          </select>
-          <div class="form-help-text">Project will be associated under this Client's SRL identifier.</div>
+        <div id="new-proj-error" style="display: none; padding: 8px 12px; border-radius: 6px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: 12.5px;"></div>
+
+        <!-- Mode Toggle: New Client vs Existing Client -->
+        <div style="display: flex; gap: 8px; background: #f1f5f9; padding: 4px; border-radius: 8px;">
+          <button 
+            type="button"
+            id="client-mode-btn-new"
+            class="btn ${initialMode === 'NEW' ? 'btn-primary' : 'btn-secondary'} btn-sm" 
+            style="flex: 1; border-radius: 6px; font-size: 12px; font-weight: 700;"
+            onclick="window.Zoosh.Views.Projects.setNewProjClientMode('NEW')"
+          >
+            + New Client &amp; Project
+          </button>
+          <button 
+            type="button"
+            id="client-mode-btn-existing"
+            class="btn ${initialMode === 'EXISTING' ? 'btn-primary' : 'btn-secondary'} btn-sm" 
+            style="flex: 1; border-radius: 6px; font-size: 12px; font-weight: 700; ${clients.length === 0 ? 'opacity: 0.4; cursor: not-allowed;' : ''}"
+            ${clients.length === 0 ? 'disabled' : ''}
+            onclick="window.Zoosh.Views.Projects.setNewProjClientMode('EXISTING')"
+          >
+            Existing Client (${clients.length})
+          </button>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Project Name</label>
-          <input type="text" id="new-proj-name" class="form-input" placeholder="e.g. Sreelal - Calicut Villa" autofocus />
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Site / Delivery Location</label>
-          <input type="text" id="new-proj-location" class="form-input" placeholder="e.g. Calicut" />
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div class="form-group">
-            <label class="form-label">Confirmed Date</label>
-            <input type="date" id="new-proj-confirmed" class="form-input" value="${config.CURRENT_DATE}" />
+        <!-- Section A: New Client Details -->
+        <div id="new-client-fields-section" style="display: ${initialMode === 'NEW' ? 'block' : 'none'}; background: #f8fafc; border: 1px solid var(--border-light); border-radius: 8px; padding: 12px 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <strong style="font-size: 12px; color: var(--text-main); text-transform: uppercase; letter-spacing: 0.5px;">Client / Customer Info</strong>
+            <span class="badge badge-primary" style="font-size: 11px;">Auto SRL ${nextSrl}</span>
           </div>
-          <div class="form-group">
-            <label class="form-label">Fixed Delivery Deadline</label>
-            <input type="date" id="new-proj-deadline" class="form-input" />
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 11.5px;">Client / Customer Name *</label>
+              <input 
+                type="text" 
+                id="new-client-name" 
+                class="form-input" 
+                placeholder="e.g. Swalih, Dr. Nambiar" 
+                oninput="window.Zoosh.Views.Projects.handleClientNameInput(this.value)" 
+                autofocus 
+              />
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 11.5px;">Client SRL #</label>
+              <input 
+                type="number" 
+                id="new-client-srl" 
+                class="form-input" 
+                value="${nextSrl}" 
+                style="font-family: var(--font-mono); font-weight: 700;" 
+              />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 11.5px;">Location / City</label>
+              <input 
+                type="text" 
+                id="new-client-location" 
+                class="form-input" 
+                placeholder="e.g. Calicut, Bangalore" 
+                oninput="window.Zoosh.Views.Projects.handleClientLocationInput(this.value)" 
+              />
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 11.5px;">Phone Number (Optional)</label>
+              <input 
+                type="tel" 
+                id="new-client-phone" 
+                class="form-input" 
+                placeholder="e.g. +91 98470 12345" 
+              />
+            </div>
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Notes</label>
-          <textarea id="new-proj-notes" class="form-textarea" rows="2" placeholder="Specific requirements, architect notes..."></textarea>
+        <!-- Section B: Existing Client Selection -->
+        <div id="existing-client-fields-section" style="display: ${initialMode === 'EXISTING' ? 'block' : 'none'};">
+          <div class="form-group">
+            <label class="form-label">Select Client / Customer (SRL)</label>
+            <select id="new-proj-client-id" class="form-input">
+              ${clients.map(c => `
+                <option value="${c.id}" ${c.id === preselectedClientId ? 'selected' : ''}>
+                  SRL ${c.srl} — ${c.name} (${c.location || 'Site'})
+                </option>
+              `).join('')}
+            </select>
+            <div class="form-help-text">Project will be associated under this Client's SRL identifier.</div>
+          </div>
+        </div>
+
+        <!-- Project Details -->
+        <div style="border-top: 1px solid var(--border-light); padding-top: 14px;">
+          <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; letter-spacing: 0.5px;">
+            Project Details
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Project Name</label>
+            <input 
+              type="text" 
+              id="new-proj-name" 
+              class="form-input" 
+              placeholder="e.g. Sreelal - Calicut Villa" 
+              oninput="this.dataset.userEdited = 'true'" 
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Site / Delivery Location</label>
+            <input 
+              type="text" 
+              id="new-proj-location" 
+              class="form-input" 
+              placeholder="e.g. Calicut" 
+              oninput="this.dataset.userEdited = 'true'" 
+            />
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">Confirmed Date</label>
+              <input type="date" id="new-proj-confirmed" class="form-input" value="${config.CURRENT_DATE}" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Fixed Delivery Deadline *</label>
+              <input type="date" id="new-proj-deadline" class="form-input" required />
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Notes</label>
+            <textarea id="new-proj-notes" class="form-textarea" rows="2" placeholder="Specific requirements, architect instructions, custom finishes..."></textarea>
+          </div>
         </div>
       </div>
     `;
 
     const footerHtml = `
       <button class="btn btn-secondary" onclick="window.Zoosh.Modal.close()">Cancel</button>
-      <button class="btn btn-primary" onclick="window.Zoosh.Views.Projects.submitNewProject()">Create Project</button>
+      <button class="btn btn-primary" onclick="window.Zoosh.Views.Projects.submitNewProject()">
+        Create Project &amp; Add Items &rarr;
+      </button>
     `;
 
-    window.Zoosh.Modal.open(title, bodyHtml, footerHtml);
+    window.Zoosh.Modal.open(title, bodyHtml, footerHtml, '520px');
   },
 
   submitNewProject() {
-    const clientId = document.getElementById('new-proj-client-id').value;
-    const name = document.getElementById('new-proj-name').value.trim();
-    const location = document.getElementById('new-proj-location').value.trim();
-    const confirmedDate = document.getElementById('new-proj-confirmed').value;
-    const deliveryDeadline = document.getElementById('new-proj-deadline').value;
-    const notes = document.getElementById('new-proj-notes').value.trim();
+    const isNewClient = this.newProjClientMode === 'NEW';
+    let clientId = '';
 
-    if (!name || !deliveryDeadline) {
-      alert('Please provide Project Name and Fixed Delivery Deadline.');
+    const errEl = document.getElementById('new-proj-error');
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+    const showError = (msg) => {
+      if (errEl) {
+        errEl.style.display = 'block';
+        errEl.textContent = msg;
+      } else {
+        alert(msg);
+      }
+    };
+
+    const confirmedDate = document.getElementById('new-proj-confirmed')?.value || window.Zoosh.Config.CURRENT_DATE;
+    const deliveryDeadline = document.getElementById('new-proj-deadline')?.value;
+    const notes = (document.getElementById('new-proj-notes')?.value || '').trim();
+    let location = (document.getElementById('new-proj-location')?.value || '').trim();
+    let projName = (document.getElementById('new-proj-name')?.value || '').trim();
+
+    if (!deliveryDeadline) {
+      showError('Please provide a Fixed Delivery Deadline.');
       return;
+    }
+
+    if (isNewClient) {
+      const clientName = (document.getElementById('new-client-name')?.value || '').trim();
+      const srlVal = document.getElementById('new-client-srl')?.value;
+      const clientLoc = (document.getElementById('new-client-location')?.value || '').trim();
+      const clientPhone = (document.getElementById('new-client-phone')?.value || '').trim();
+
+      if (!clientName) {
+        showError('Please provide a Client / Customer Name.');
+        return;
+      }
+
+      if (!projName) {
+        projName = clientLoc ? `${clientName} - ${clientLoc}` : `${clientName} Project`;
+      }
+      if (!location) {
+        location = clientLoc || 'Factory Floor';
+      }
+
+      try {
+        const nextSrl = window.Zoosh.State.getNextClientSrl();
+        const srlNum = srlVal ? Number(srlVal) : nextSrl;
+        const newClient = window.Zoosh.State.addClient({
+          srl: srlNum,
+          name: clientName,
+          location: clientLoc,
+          phone: clientPhone,
+          notes: notes
+        });
+        clientId = newClient.id;
+      } catch (err) {
+        showError(err.message);
+        return;
+      }
+    } else {
+      const clientSelect = document.getElementById('new-proj-client-id');
+      clientId = clientSelect ? clientSelect.value : '';
+      if (!clientId) {
+        showError('Please select a Client / Customer.');
+        return;
+      }
+      if (!projName) {
+        const state = window.Zoosh.State.getState();
+        const client = (state.clients || []).find(c => c.id === clientId);
+        projName = client ? `${client.name} Project` : 'New Project';
+      }
     }
 
     try {
       const newProj = window.Zoosh.State.addProject({
-        clientId, name, location, confirmedDate, deliveryDeadline, notes
+        clientId,
+        name: projName,
+        location: location || 'Factory Floor',
+        confirmedDate,
+        deliveryDeadline,
+        notes
       });
 
       window.Zoosh.Modal.close();
@@ -977,7 +1201,7 @@ window.Zoosh.Views.Projects = {
         }
       }, 120);
     } catch (err) {
-      alert(err.message);
+      showError(err.message);
     }
   },
 
