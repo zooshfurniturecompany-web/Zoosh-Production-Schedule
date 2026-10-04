@@ -481,8 +481,8 @@ window.Zoosh.Views.Projects = {
                   <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Projects.openEditProjectModal('${project.id}')">
                     Edit Deadline
                   </button>
-                  <button class="btn btn-primary btn-sm" onclick="window.Zoosh.AddFurnitureWizard.open('${project.id}')">
-                    + Add Furniture
+                  <button class="btn btn-primary btn-sm" onclick="window.Zoosh.ProcessFlowModal.openAdd('${project.id}')">
+                    + Add Item
                   </button>
                 </div>
               ` : `
@@ -523,13 +523,18 @@ window.Zoosh.Views.Projects = {
         </div>
       </div>
 
-      <!-- Furniture Items List (NO SRL NUMBERS ASSIGNED TO FURNITURE!) -->
+      <!-- Furniture Items & Process Flow Table (matching uploaded Image 1 & Image 2) -->
       <div class="card-panel">
         <div class="card-panel-header">
-          <div class="card-panel-title">Project Furniture Items (${projectFurniture.length} Items)</div>
+          <div>
+            <div class="card-panel-title">Project Furniture Items (${projectFurniture.length} Items)</div>
+            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
+              Scheduled process flow orders, proportional multi-lane stages, and craftspeople assignments
+            </div>
+          </div>
           ${canEdit ? `
-            <button class="btn btn-primary btn-sm" onclick="window.Zoosh.AddFurnitureWizard.open('${project.id}')">
-              + Add Furniture
+            <button class="btn btn-primary btn-sm" onclick="window.Zoosh.ProcessFlowModal.openAdd('${project.id}')">
+              + Add Item
             </button>
           ` : ''}
         </div>
@@ -539,96 +544,162 @@ window.Zoosh.Views.Projects = {
               No furniture items registered under this project yet.
               ${canEdit ? `
                 <div style="margin-top: 12px;">
-                  <button class="btn btn-primary btn-sm" onclick="window.Zoosh.AddFurnitureWizard.open('${project.id}')">
-                    + Add First Furniture Item
+                  <button class="btn btn-primary btn-sm" onclick="window.Zoosh.ProcessFlowModal.openAdd('${project.id}')">
+                    + Add First Item (Schedule Process Flow Order)
                   </button>
                 </div>
               ` : ''}
             </div>
           ` : `
-            <!-- Mobile Furniture Cards (<768px) -->
-            <div class="mobile-only" style="padding: 12px 14px;">
-              ${projectFurniture.map(item => {
-                const itemProcs = (item.processIds || []).map(id => processesMap.get(id)).filter(Boolean);
-                itemProcs.sort((a, b) => a.sequence - b.sequence);
-                return `
-                  <div class="mobile-task-card" style="margin-bottom: 10px; cursor: pointer;" onclick="window.Zoosh.Views.Projects.openFurnitureDetail('${item.id}')">
-                    <div class="mobile-task-card-header">
-                      <span style="font-weight: 800; font-size: 14px; color: var(--text-main);">${item.name || item.furnitureName}</span>
-                      <span class="badge ${item.status === 'COMPLETED' ? 'badge-on-schedule' : 'badge-upholstery'}" style="font-size: 10px;">
-                        ● ${item.status.replace('_', ' ')}
-                      </span>
-                    </div>
-                    <div class="flow-breadcrumbs" style="margin: 8px 0;">
-                      ${itemProcs.map((p, idx) => `
-                        <span class="badge badge-${p.department.toLowerCase()}" style="font-size: 10px;">${p.department}</span>
-                        ${idx < itemProcs.length - 1 ? '<span class="flow-crumb-arrow">&rarr;</span>' : ''}
-                      `).join('')}
-                    </div>
-                    <div class="mobile-task-footer">
-                      <span style="color: var(--text-muted); font-size: 11px;">Expected Finish</span>
-                      <span style="font-weight: 700; color: var(--text-main); font-family: var(--font-mono); font-size: 12px;">
-                        ${calendar.formatDisplayDate(item.expectedFinishDate, false, true)}
-                      </span>
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-
-            <!-- Desktop Furniture Table (>768px) -->
-            <div class="desktop-only data-table-wrapper">
+            <!-- Table View (matching Image 2) -->
+            <div class="data-table-wrapper" style="overflow-x: auto;">
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th>Furniture Item</th>
-                    <th>Process Sequence</th>
-                    <th>Expected Finish</th>
-                    <th>Status</th>
-                    <th style="text-align: right;">Actions</th>
+                    <th style="width: 60px;">Sl. No.</th>
+                    <th style="width: 100px;">Product ID</th>
+                    <th style="width: 180px;">Item</th>
+                    <th style="min-width: 320px;">Scheduled Process Flow Order</th>
+                    <th style="width: 60px; text-align: center;">Qty</th>
+                    <th style="width: 160px;">Action</th>
+                    <th style="width: 120px;">Purchases</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${projectFurniture.map(item => {
-                    const itemProcs = (item.processIds || []).map(id => processesMap.get(id)).filter(Boolean);
-                    itemProcs.sort((a, b) => a.sequence - b.sequence);
+                  ${projectFurniture.map((item, idx) => {
+                    const itemProcs = (state.processes || []).filter(p => (p.furnitureId || p.srlId) === item.id);
+                    itemProcs.sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+
+                    const flowHtml = window.Zoosh.ProcessFlow 
+                      ? window.Zoosh.ProcessFlow.renderTwoLaneFlowHtml(itemProcs, { compact: true, showLabels: true }) 
+                      : '';
 
                     return `
-                      <tr style="cursor: pointer;" onclick="window.Zoosh.Views.Projects.openFurnitureDetail('${item.id}')">
-                        <td style="font-weight: 700; color: var(--text-main); font-size: 13.5px;">
-                          ${item.name || item.furnitureName}
-                        </td>
+                      <tr>
+                        <td style="font-weight: 700; color: var(--text-muted);">${idx + 1}</td>
                         <td>
-                          <div class="flow-breadcrumbs">
-                            ${itemProcs.map((p, idx) => `
-                              <span class="badge badge-${p.department.toLowerCase()}">${p.department}</span>
-                              ${idx < itemProcs.length - 1 ? '<span class="flow-crumb-arrow">&rarr;</span>' : ''}
-                            `).join('')}
-                          </div>
-                        </td>
-                        <td style="font-family: var(--font-mono); font-weight: 600;">
-                          ${calendar.formatDisplayDate(item.expectedFinishDate, false, true)}
-                        </td>
-                        <td>
-                          <span class="badge ${item.status === 'COMPLETED' ? 'badge-on-schedule' : (item.status === 'IN_PROGRESS' ? 'badge-upholstery' : '')}">
-                            ${item.status.replace('_', ' ')}
+                          <span class="badge badge-primary" style="font-size: 11px; padding: 2px 7px;">
+                            SRL ${clientSrl}
                           </span>
                         </td>
-                        <td style="text-align: right;" onclick="event.stopPropagation();">
-                          <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Projects.openFurnitureDetail('${item.id}')">
-                            Inspect &rarr;
-                          </button>
-                          ${canEdit ? `
-                            <button class="btn btn-secondary btn-sm" style="color: #dc2626; margin-left: 6px;" onclick="window.Zoosh.Views.Projects.confirmDeleteFurniture('${item.id}', '${item.name || item.furnitureName}')">
-                              Delete
+                        <td style="font-weight: 700; color: var(--text-main); font-size: 13.5px;">
+                          <a href="javascript:void(0)" onclick="window.Zoosh.Views.Projects.openFurnitureDetail('${item.id}')" style="color: inherit; text-decoration: none;">
+                            ${item.name || item.furnitureName}
+                          </a>
+                        </td>
+                        <td>
+                          ${flowHtml}
+                        </td>
+                        <td style="text-align: center; font-weight: 700; font-family: var(--font-mono);">
+                          ${item.qty || 1}
+                        </td>
+                        <td>
+                          <div style="display: flex; gap: 6px; align-items: center;">
+                            ${canEdit ? `
+                              <button class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;" onclick="window.Zoosh.ProcessFlowModal.openEdit('${item.id}')" title="Edit Process Flow Order">
+                                ✏️ Edit Flow
+                              </button>
+                            ` : ''}
+                            <button class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;" onclick="window.Zoosh.Views.Projects.openFurnitureDetail('${item.id}')">
+                              Inspect
                             </button>
-                          ` : ''}
+                            ${canEdit ? `
+                              <button class="btn btn-secondary btn-sm" style="color: #dc2626; padding: 2px 6px; font-size: 11px;" onclick="window.Zoosh.Views.Projects.confirmDeleteFurniture('${item.id}', '${item.name || item.furnitureName}')" title="Delete item">
+                                &times;
+                              </button>
+                            ` : ''}
+                          </div>
+                        </td>
+                        <td>
+                          <button class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;" onclick="window.Zoosh.Views.Overview ? window.Zoosh.Views.Overview.openRemindersModal() : alert('Reminders')">
+                            🔔 Add Reminder
+                          </button>
                         </td>
                       </tr>
                     `;
                   }).join('')}
                 </tbody>
               </table>
+            </div>
+
+            <!-- Detailed Proportional Cards & Duration Tables (matching Image 1) -->
+            <div style="padding: 16px 20px; background: #fafafa; border-top: 1px solid var(--border-light);">
+              <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.5px;">
+                Detailed Flow Representation &amp; Duration Tables
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                ${projectFurniture.map(item => {
+                  const itemProcs = (state.processes || []).filter(p => (p.furnitureId || p.srlId) === item.id);
+                  itemProcs.sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+                  const { criticalDuration } = window.Zoosh.ProcessFlow 
+                    ? window.Zoosh.ProcessFlow.calculateDurations(itemProcs) 
+                    : { criticalDuration: 0 };
+
+                  return `
+                    <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: 8px; padding: 14px 16px;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                          <span class="badge badge-primary" style="font-size: 12px; font-weight: 700; font-family: var(--font-mono);">
+                            SRL ${clientSrl}
+                          </span>
+                          <strong style="font-size: 14px; color: var(--text-main);">${item.name || item.furnitureName}</strong>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                          <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 10px; font-size: 12px;">
+                            <span style="color: var(--text-muted);">Total Process Duration:</span>
+                            <strong style="color: var(--text-main); font-family: var(--font-mono); margin-left: 4px;">${criticalDuration}</strong>
+                          </div>
+                          ${canEdit ? `
+                            <button class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 11px;" onclick="window.Zoosh.ProcessFlowModal.openEdit('${item.id}')">
+                              ✏️ Edit Flow
+                            </button>
+                          ` : ''}
+                        </div>
+                      </div>
+
+                      <!-- Proportional 2-Lane Flow Chart -->
+                      <div style="margin-bottom: 12px;">
+                        ${window.Zoosh.ProcessFlow ? window.Zoosh.ProcessFlow.renderTwoLaneFlowHtml(itemProcs, { compact: false, showLabels: true, showEmployees: false }) : ''}
+                      </div>
+
+                      <!-- Duration Table (Image 1) -->
+                      <div style="border: 1px solid var(--border-light); border-radius: 6px; overflow: hidden; max-width: 520px;">
+                        <table class="data-table" style="font-size: 12px; margin: 0;">
+                          <thead>
+                            <tr style="background: #f8fafc;">
+                              <th>Process</th>
+                              <th>Employee</th>
+                              <th style="width: 80px; text-align: right;">Days</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${itemProcs.map(p => {
+                              const emp = (state.employees || []).find(e => e.id === p.employeeId);
+                              return `
+                                <tr>
+                                  <td style="font-weight: 600;">${p.department}</td>
+                                  <td>${emp ? emp.name : '—'}</td>
+                                  <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${p.durationDays}</td>
+                                </tr>
+                              `;
+                            }).join('')}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+
+              <!-- Button for adding new item following product series (Image 1 bottom-right) -->
+              ${canEdit ? `
+                <div style="display: flex; justify-content: flex-end; margin-top: 18px;">
+                  <button class="btn btn-primary" onclick="window.Zoosh.ProcessFlowModal.openAdd('${project.id}')">
+                    + Add New Item
+                  </button>
+                </div>
+              ` : ''}
             </div>
           `}
         </div>
@@ -678,6 +749,8 @@ window.Zoosh.Views.Projects = {
     const itemProcs = (state.processes || []).filter(p => (p.furnitureId || p.srlId) === furnitureId);
     itemProcs.sort((a, b) => a.sequence - b.sequence);
     const employeesMap = new Map((state.employees || []).map(e => [e.id, e]));
+    const auth = window.Zoosh.Auth;
+    const canEdit = auth ? auth.canEdit() : true;
 
     if (window.Zoosh.App) {
       window.Zoosh.App.updateMobileHeader(item.name || item.furnitureName, true, () => window.Zoosh.Views.Projects.closeFurnitureDetail());
@@ -712,12 +785,30 @@ window.Zoosh.Views.Projects = {
             </span>
           </div>
 
-          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-light); padding-top: 12px; margin-top: 14px; font-size: 12px;">
-            <span style="color: var(--text-muted);">Expected Completion:</span>
-            <strong style="color: var(--text-main); font-family: var(--font-mono); font-size: 13px;">
-              ${calendar.formatDisplayDate(item.expectedFinishDate, true, true)}
-            </strong>
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-light); padding-top: 12px; margin-top: 14px; font-size: 12px; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <span style="color: var(--text-muted);">Expected Completion:</span>
+              <strong style="color: var(--text-main); font-family: var(--font-mono); font-size: 13px; margin-left: 4px;">
+                ${calendar.formatDisplayDate(item.expectedFinishDate, true, true)}
+              </strong>
+            </div>
+            ${canEdit ? `
+              <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.ProcessFlowModal.openEdit('${item.id}')">
+                ✏️ Edit Process Flow Order
+              </button>
+            ` : ''}
           </div>
+        </div>
+      </div>
+
+      <!-- Two-Lane Scheduled Flow Representation -->
+      <div class="card-panel" style="margin-bottom: 20px;">
+        <div class="card-panel-header">
+          <div class="card-panel-title">Scheduled Process Flow Order</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Proportional multi-lane process timeline</div>
+        </div>
+        <div class="card-panel-body" style="padding: 16px;">
+          ${window.Zoosh.ProcessFlow ? window.Zoosh.ProcessFlow.renderTwoLaneFlowHtml(itemProcs, { compact: false, showLabels: true, showEmployees: true }) : ''}
         </div>
       </div>
 
@@ -878,6 +969,13 @@ window.Zoosh.Views.Projects = {
 
       window.Zoosh.Modal.close();
       this.openDetail(newProj.id);
+
+      // Automatically launch Schedule Process Flow Order panel for the first item
+      setTimeout(() => {
+        if (window.Zoosh.ProcessFlowModal) {
+          window.Zoosh.ProcessFlowModal.openAdd(newProj.id);
+        }
+      }, 120);
     } catch (err) {
       alert(err.message);
     }

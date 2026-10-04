@@ -373,25 +373,48 @@ window.Zoosh.State = {
   // Belongs to Project. NO SRL numbers on furniture!
   // ==========================================
 
+  getFurniture(id) {
+    return (this._state.furniture || this._state.srls || []).find(f => f.id === id) || null;
+  },
+
   addFurniture(furnitureData, processesList) {
     this._checkPermission('create');
 
     const furnId = 'furn_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
     const furnitureName = (furnitureData.name || furnitureData.furnitureName || 'New Furniture Item').trim();
     
-    const newProcesses = (processesList || []).map((p, idx) => ({
-      id: `proc_${furnId.replace('furn_', '')}_${idx + 1}`,
-      furnitureId: furnId,
-      srlId: furnId, // backward compatibility alias for engine
-      projectId: furnitureData.projectId,
-      sequence: idx + 1,
-      department: p.department,
-      employeeId: p.employeeId,
-      durationDays: parseFloat(p.durationDays) || 1,
-      status: 'PENDING',
-      progressPercent: 0,
-      notes: p.notes || ''
-    }));
+    // Map temporary node IDs to stable production process IDs
+    const idMap = new Map();
+    (processesList || []).forEach((p, idx) => {
+      const pKey = p.tempId || p.id || `node_${idx + 1}`;
+      idMap.set(pKey, `proc_${furnId.replace('furn_', '')}_${idx + 1}`);
+    });
+
+    const newProcesses = (processesList || []).map((p, idx) => {
+      const pKey = p.tempId || p.id || `node_${idx + 1}`;
+      const mappedId = idMap.get(pKey) || `proc_${furnId.replace('furn_', '')}_${idx + 1}`;
+      
+      const rawDeps = p.dependencyTempIds || p.dependencyIds || [];
+      const resolvedDeps = rawDeps.map(d => idMap.get(d) || d);
+
+      return {
+        id: mappedId,
+        furnitureId: furnId,
+        srlId: furnId, // backward compatibility alias for engine
+        projectId: furnitureData.projectId,
+        sequence: idx + 1,
+        department: p.department,
+        employeeId: p.employeeId,
+        durationDays: parseFloat(p.durationDays) || 1,
+        lane: p.lane || 1,
+        dependencyIds: resolvedDeps,
+        relationType: p.relationType || (idx === 0 ? 'START' : 'AFTER'),
+        parallelGroupId: p.parallelGroupId || null,
+        status: p.status || 'PENDING',
+        progressPercent: p.progressPercent || 0,
+        notes: p.notes || ''
+      };
+    });
 
     const newFurniture = {
       id: furnId,
@@ -399,6 +422,9 @@ window.Zoosh.State = {
       name: furnitureName,
       furnitureName: furnitureName, // backward compatibility alias
       flowTypeId: furnitureData.flowTypeId || null,
+      flowSource: furnitureData.flowSource || (furnitureData.flow ? furnitureData.flow.source : 'PRESET'),
+      flow: furnitureData.flow || null,
+      qty: parseInt(furnitureData.qty, 10) || 1,
       startDate: furnitureData.startDate || window.Zoosh.Config.CURRENT_DATE,
       status: 'NOT_STARTED',
       processIds: newProcesses.map(p => p.id)
@@ -423,6 +449,78 @@ window.Zoosh.State = {
     this.touchDataUpdated();
     this.recalculate();
     return newFurniture;
+  },
+
+  updateFurnitureFlow(furnId, furnitureData, processesList) {
+    this._checkPermission('edit');
+
+    const item = (this._state.furniture || []).find(f => f.id === furnId);
+    if (!item) throw new Error('Furniture item not found: ' + furnId);
+
+    if (furnitureData.name) {
+      item.name = furnitureData.name.trim();
+      item.furnitureName = item.name;
+    }
+    if (furnitureData.qty !== undefined) {
+      item.qty = parseInt(furnitureData.qty, 10) || 1;
+    }
+    if (furnitureData.startDate) {
+      item.startDate = furnitureData.startDate;
+    }
+    if (furnitureData.flowTypeId !== undefined) {
+      item.flowTypeId = furnitureData.flowTypeId;
+    }
+    if (furnitureData.flowSource !== undefined) {
+      item.flowSource = furnitureData.flowSource;
+    }
+    if (furnitureData.flow !== undefined) {
+      item.flow = furnitureData.flow;
+    }
+
+    // Preserve existing process progress/status if matching ID
+    const existingProcMap = new Map((this._state.processes || []).filter(p => (p.furnitureId || p.srlId) === furnId).map(p => [p.id, p]));
+
+    const idMap = new Map();
+    (processesList || []).forEach((p, idx) => {
+      const pKey = p.tempId || p.id || `node_${idx + 1}`;
+      const existingId = p.id && existingProcMap.has(p.id) ? p.id : `proc_${furnId.replace('furn_', '')}_${idx + 1}`;
+      idMap.set(pKey, existingId);
+    });
+
+    const updatedProcesses = (processesList || []).map((p, idx) => {
+      const pKey = p.tempId || p.id || `node_${idx + 1}`;
+      const mappedId = idMap.get(pKey) || `proc_${furnId.replace('furn_', '')}_${idx + 1}`;
+      const existing = existingProcMap.get(mappedId);
+
+      const rawDeps = p.dependencyTempIds || p.dependencyIds || [];
+      const resolvedDeps = rawDeps.map(d => idMap.get(d) || d);
+
+      return {
+        id: mappedId,
+        furnitureId: furnId,
+        srlId: furnId,
+        projectId: item.projectId,
+        sequence: idx + 1,
+        department: p.department,
+        employeeId: p.employeeId,
+        durationDays: parseFloat(p.durationDays) || 1,
+        lane: p.lane || 1,
+        dependencyIds: resolvedDeps,
+        relationType: p.relationType || (idx === 0 ? 'START' : 'AFTER'),
+        parallelGroupId: p.parallelGroupId || null,
+        status: existing ? existing.status : (p.status || 'PENDING'),
+        progressPercent: existing ? existing.progressPercent : (p.progressPercent || 0),
+        notes: p.notes || ''
+      };
+    });
+
+    this._state.processes = (this._state.processes || []).filter(p => (p.furnitureId || p.srlId) !== furnId);
+    this._state.processes.push(...updatedProcesses);
+    item.processIds = updatedProcesses.map(p => p.id);
+
+    this.touchDataUpdated();
+    this.recalculate();
+    return item;
   },
 
   updateFurniture(id, furnitureData) {

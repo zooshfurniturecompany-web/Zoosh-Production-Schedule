@@ -88,96 +88,250 @@ window.Zoosh.Scheduler = {
       srlProcessesMap.get(parentId).push(proc);
     });
 
-    // Schedule each item's processes sequentially
+    // Schedule each item's processes (supports both structured DAG flows and legacy sequential flows)
     (cloned.srls || []).forEach(srl => {
       const procs = srlProcessesMap.get(srl.id) || [];
-      procs.sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
-
-      let nextAvailableStart = srl.startDate || currentDate;
-
       const proj = projectsMap.get(srl.projectId);
       const client = proj ? clientsMap.get(proj.clientId) : null;
       const clientSrl = client ? client.srl : (proj ? proj.clientSrl : (srl.srlNumber || '—'));
       const clientName = client ? client.name : (proj ? proj.clientName : 'Client');
       const furnitureName = srl.furnitureName || srl.name || 'Furniture Item';
 
-      procs.forEach((proc, idx) => {
-        const emp = employeesMap.get(proc.employeeId);
-        const duration = parseFloat(proc.durationDays) || 1;
-        const leaveDates = emp && employeeLeavesMap.has(emp.id) ? Array.from(employeeLeavesMap.get(emp.id)) : [];
+      const hasExplicitStructure = procs.some(p => 
+        (Array.isArray(p.dependencyIds) && p.dependencyIds.length > 0) || 
+        p.lane === 2 || 
+        p.relationType === 'PARALLEL'
+      );
 
-        // Check earliest working date respecting Sundays
-        let searchDate = calendar.parseDate(nextAvailableStart);
-        while (calendar.isSunday(searchDate)) {
-          searchDate.setDate(searchDate.getDate() + 1);
-        }
-        let actualStartStr = calendar.formatDate(searchDate);
+      if (!hasExplicitStructure) {
+        // Legacy / Standard Linear Sequential Scheduling (100% backward compatible)
+        procs.sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+        let nextAvailableStart = srl.startDate || currentDate;
 
-        // Calculate schedule span skipping Sundays
-        const span = calendar.calculateWorkingSpan(actualStartStr, duration, []);
+        procs.forEach((proc, idx) => {
+          const emp = employeesMap.get(proc.employeeId);
+          const duration = parseFloat(proc.durationDays) || 1;
+          const leaveDates = emp && employeeLeavesMap.has(emp.id) ? Array.from(employeeLeavesMap.get(emp.id)) : [];
 
-        // Check for leave collision
-        let hasConflict = false;
-        if (leaveDates.length > 0) {
-          span.scheduledSegments.forEach(seg => {
-            if (leaveDates.includes(seg.dateStr)) {
-              hasConflict = true;
+          // Check earliest working date respecting Sundays
+          let searchDate = calendar.parseDate(nextAvailableStart);
+          while (calendar.isSunday(searchDate)) {
+            searchDate.setDate(searchDate.getDate() + 1);
+          }
+          let actualStartStr = calendar.formatDate(searchDate);
+
+          // Calculate schedule span skipping Sundays
+          const span = calendar.calculateWorkingSpan(actualStartStr, duration, []);
+
+          // Check for leave collision
+          let hasConflict = false;
+          if (leaveDates.length > 0) {
+            span.scheduledSegments.forEach(seg => {
+              if (leaveDates.includes(seg.dateStr)) {
+                hasConflict = true;
+              }
+            });
+          }
+
+          if (hasConflict) {
+            proc.hasLeaveConflict = true;
+            leaveConflicts.push({
+              processId: proc.id,
+              furnitureId: srl.id,
+              srlId: srl.id,
+              srlNumber: clientSrl,
+              clientSrl: clientSrl,
+              clientName: clientName,
+              furnitureName: furnitureName,
+              projectName: proj ? proj.name : '—',
+              department: proc.department,
+              employeeId: proc.employeeId,
+              employeeName: emp ? emp.name : 'Unknown'
+            });
+          } else {
+            proc.hasLeaveConflict = false;
+          }
+
+          // Assign computed dates to process
+          proc.calculatedStartDate = span.startDateStr;
+          proc.calculatedEndDate = span.endDateStr;
+          proc.scheduledSegments = span.scheduledSegments;
+          proc.endHour = span.endHour;
+
+          // Record employee hours
+          if (emp) {
+            span.scheduledSegments.forEach(seg => {
+              addEmpHours(emp.id, seg.dateStr, seg.hours);
+            });
+          }
+
+          // Downstream dependency chaining
+          const lastSeg = span.scheduledSegments[span.scheduledSegments.length - 1];
+          if (lastSeg && lastSeg.endHour >= 17) {
+            let nextD = calendar.parseDate(lastSeg.dateStr);
+            nextD.setDate(nextD.getDate() + 1);
+            while (calendar.isSunday(nextD)) {
+              nextD.setDate(nextD.getDate() + 1);
+            }
+            nextAvailableStart = calendar.formatDate(nextD);
+          } else if (lastSeg) {
+            nextAvailableStart = lastSeg.dateStr;
+          } else {
+            nextAvailableStart = span.endDateStr;
+          }
+        });
+      } else {
+        // Structured Process Flow Scheduling (Supports DAG dependencies & parallel lanes)
+        const itemProcMap = new Map(procs.map(p => [p.id, p]));
+        const resolvedDeps = new Map();
+
+        procs.forEach((p, idx) => {
+          if (Array.isArray(p.dependencyIds) && p.dependencyIds.length > 0) {
+            resolvedDeps.set(p.id, p.dependencyIds.filter(id => itemProcMap.has(id)));
+          } else if (p.relationType === 'PARALLEL' && p.parallelWithId && itemProcMap.has(p.parallelWithId)) {
+            const siblingDeps = resolvedDeps.get(p.parallelWithId) || [];
+            resolvedDeps.set(p.id, [...siblingDeps]);
+          } else if (idx > 0 && p.lane !== 2 && p.relationType !== 'START') {
+            resolvedDeps.set(p.id, [procs[idx - 1].id]);
+          } else {
+            resolvedDeps.set(p.id, []);
+          }
+        });
+
+        // Topological Sort (Kahn's Algorithm)
+        const inDegree = new Map();
+        const adjList = new Map();
+        procs.forEach(p => {
+          inDegree.set(p.id, 0);
+          adjList.set(p.id, []);
+        });
+
+        procs.forEach(p => {
+          const deps = resolvedDeps.get(p.id) || [];
+          inDegree.set(p.id, deps.length);
+          deps.forEach(depId => {
+            if (adjList.has(depId)) {
+              adjList.get(depId).push(p.id);
+            }
+          });
+        });
+
+        const queue = procs.filter(p => (inDegree.get(p.id) || 0) === 0);
+        const scheduledOrder = [];
+
+        while (queue.length > 0) {
+          queue.sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+          const curr = queue.shift();
+          scheduledOrder.push(curr);
+
+          const neighbors = adjList.get(curr.id) || [];
+          neighbors.forEach(nId => {
+            inDegree.set(nId, inDegree.get(nId) - 1);
+            if (inDegree.get(nId) === 0) {
+              const nProc = itemProcMap.get(nId);
+              if (nProc) queue.push(nProc);
             }
           });
         }
 
-        if (hasConflict) {
-          proc.hasLeaveConflict = true;
-          leaveConflicts.push({
-            processId: proc.id,
-            furnitureId: srl.id,
-            srlId: srl.id,
-            srlNumber: clientSrl,
-            clientSrl: clientSrl,
-            clientName: clientName,
-            furnitureName: furnitureName,
-            projectName: proj ? proj.name : '—',
-            department: proc.department,
-            employeeId: proc.employeeId,
-            employeeName: emp ? emp.name : 'Unknown'
-          });
-        } else {
-          proc.hasLeaveConflict = false;
-        }
+        // If any remaining (e.g. cycle safeguard), append them
+        procs.forEach(p => {
+          if (!scheduledOrder.includes(p)) scheduledOrder.push(p);
+        });
 
-        // Assign computed dates to process
-        proc.calculatedStartDate = span.startDateStr;
-        proc.calculatedEndDate = span.endDateStr;
-        proc.scheduledSegments = span.scheduledSegments;
-        proc.endHour = span.endHour;
+        // Schedule processes in topological order
+        scheduledOrder.forEach(proc => {
+          const emp = employeesMap.get(proc.employeeId);
+          const duration = parseFloat(proc.durationDays) || 1;
+          const leaveDates = emp && employeeLeavesMap.has(emp.id) ? Array.from(employeeLeavesMap.get(emp.id)) : [];
+          const deps = resolvedDeps.get(proc.id) || [];
 
-        // Record employee hours
-        if (emp) {
-          span.scheduledSegments.forEach(seg => {
-            addEmpHours(emp.id, seg.dateStr, seg.hours);
-          });
-        }
+          let earliestStart = srl.startDate || currentDate;
 
-        // Downstream dependency chaining
-        const lastSeg = span.scheduledSegments[span.scheduledSegments.length - 1];
-        if (lastSeg && lastSeg.endHour >= 17) {
-          let nextD = calendar.parseDate(lastSeg.dateStr);
-          nextD.setDate(nextD.getDate() + 1);
-          while (calendar.isSunday(nextD)) {
-            nextD.setDate(nextD.getDate() + 1);
+          if (deps.length > 0) {
+            deps.forEach(depId => {
+              const pred = itemProcMap.get(depId);
+              if (pred && pred.calculatedEndDate) {
+                let predAvail;
+                const lastSeg = pred.scheduledSegments && pred.scheduledSegments[pred.scheduledSegments.length - 1];
+                if (lastSeg && lastSeg.endHour >= 17) {
+                  let nextD = calendar.parseDate(lastSeg.dateStr);
+                  nextD.setDate(nextD.getDate() + 1);
+                  while (calendar.isSunday(nextD)) {
+                    nextD.setDate(nextD.getDate() + 1);
+                  }
+                  predAvail = calendar.formatDate(nextD);
+                } else if (lastSeg) {
+                  predAvail = lastSeg.dateStr;
+                } else {
+                  predAvail = pred.calculatedEndDate;
+                }
+
+                if (predAvail > earliestStart) {
+                  earliestStart = predAvail;
+                }
+              }
+            });
           }
-          nextAvailableStart = calendar.formatDate(nextD);
-        } else if (lastSeg) {
-          nextAvailableStart = lastSeg.dateStr;
-        } else {
-          nextAvailableStart = span.endDateStr;
-        }
-      });
+
+          let searchDate = calendar.parseDate(earliestStart);
+          while (calendar.isSunday(searchDate)) {
+            searchDate.setDate(searchDate.getDate() + 1);
+          }
+          let actualStartStr = calendar.formatDate(searchDate);
+
+          const span = calendar.calculateWorkingSpan(actualStartStr, duration, []);
+
+          let hasConflict = false;
+          if (leaveDates.length > 0) {
+            span.scheduledSegments.forEach(seg => {
+              if (leaveDates.includes(seg.dateStr)) {
+                hasConflict = true;
+              }
+            });
+          }
+
+          if (hasConflict) {
+            proc.hasLeaveConflict = true;
+            leaveConflicts.push({
+              processId: proc.id,
+              furnitureId: srl.id,
+              srlId: srl.id,
+              srlNumber: clientSrl,
+              clientSrl: clientSrl,
+              clientName: clientName,
+              furnitureName: furnitureName,
+              projectName: proj ? proj.name : '—',
+              department: proc.department,
+              employeeId: proc.employeeId,
+              employeeName: emp ? emp.name : 'Unknown'
+            });
+          } else {
+            proc.hasLeaveConflict = false;
+          }
+
+          proc.calculatedStartDate = span.startDateStr;
+          proc.calculatedEndDate = span.endDateStr;
+          proc.scheduledSegments = span.scheduledSegments;
+          proc.endHour = span.endHour;
+
+          if (emp) {
+            span.scheduledSegments.forEach(seg => {
+              addEmpHours(emp.id, seg.dateStr, seg.hours);
+            });
+          }
+        });
+      }
 
       // Compute Furniture finish date & progress
       if (procs.length > 0) {
-        const lastProc = procs[procs.length - 1];
-        srl.expectedFinishDate = lastProc.calculatedEndDate;
+        let maxEndDate = procs[0].calculatedEndDate;
+        procs.forEach(p => {
+          if (p.calculatedEndDate && p.calculatedEndDate > maxEndDate) {
+            maxEndDate = p.calculatedEndDate;
+          }
+        });
+        srl.expectedFinishDate = maxEndDate;
         
         const completedProcs = procs.filter(p => p.status === 'COMPLETED').length;
         if (completedProcs === procs.length) {
