@@ -73,8 +73,28 @@ window.Zoosh.State = {
       this._state.currentDate = window.Zoosh.Config.CURRENT_DATE;
     }
 
+    // Ensure lastDataUpdatedAt exists
+    if (!this._state.lastDataUpdatedAt) {
+      this._state.lastDataUpdatedAt = '2026-09-02T19:45:00.000Z';
+    }
+
+    // Ensure reminders array exists
+    if (!this._state.reminders) {
+      const defaultState = window.Zoosh.DemoData.getInitialState();
+      this._state.reminders = defaultState.reminders || [];
+    }
+
     // Run initial schedule calculation
     this.recalculate();
+  },
+
+  touchDataUpdated() {
+    if (!this._state) return;
+    this._state.lastDataUpdatedAt = new Date().toISOString();
+  },
+
+  getLastDataUpdatedAt() {
+    return (this._state && this._state.lastDataUpdatedAt) || '2026-09-02T19:45:00.000Z';
   },
 
   _syncFurnitureAliases() {
@@ -195,6 +215,7 @@ window.Zoosh.State = {
 
     this._state.clients = this._state.clients || [];
     this._state.clients.push(newClient);
+    this.touchDataUpdated();
     this.recalculate();
     return newClient;
   },
@@ -227,6 +248,7 @@ window.Zoosh.State = {
       }
     });
 
+    this.touchDataUpdated();
     this.recalculate();
     return client;
   },
@@ -246,6 +268,7 @@ window.Zoosh.State = {
 
     this._state.projects = (this._state.projects || []).filter(p => p.clientId !== id);
     this._state.clients = (this._state.clients || []).filter(c => c.id !== id);
+    this.touchDataUpdated();
     this.recalculate();
   },
 
@@ -281,11 +304,13 @@ window.Zoosh.State = {
       deliveryDeadline: projectData.deliveryDeadline, // Fixed target
       notes: projectData.notes || '',
       furnitureIds: [],
-      srlIds: []
+      srlIds: [],
+      isDelivered: false
     };
 
     this._state.projects = this._state.projects || [];
     this._state.projects.push(newProject);
+    this.touchDataUpdated();
     this.recalculate();
     return newProject;
   },
@@ -306,6 +331,26 @@ window.Zoosh.State = {
     }
 
     Object.assign(proj, projectData);
+    this.touchDataUpdated();
+    this.recalculate();
+    return proj;
+  },
+
+  markProjectDelivered(id, isDelivered = true) {
+    this._checkPermission('edit');
+    const proj = (this._state.projects || []).find(p => p.id === id);
+    if (!proj) return null;
+
+    proj.isDelivered = Boolean(isDelivered);
+    if (isDelivered) {
+      proj.status = 'DELIVERED';
+      proj.deliveredAt = new Date().toISOString().split('T')[0];
+    } else {
+      proj.status = proj.completionPercent === 100 ? 'COMPLETED' : 'IN_PROGRESS';
+      delete proj.deliveredAt;
+    }
+
+    this.touchDataUpdated();
     this.recalculate();
     return proj;
   },
@@ -319,6 +364,7 @@ window.Zoosh.State = {
     this._state.furniture = (this._state.furniture || []).filter(s => s.projectId !== id);
     this._state.srls = this._state.furniture;
     this._state.projects = (this._state.projects || []).filter(p => p.id !== id);
+    this.touchDataUpdated();
     this.recalculate();
   },
 
@@ -374,6 +420,7 @@ window.Zoosh.State = {
       proj.srlIds.push(furnId);
     }
 
+    this.touchDataUpdated();
     this.recalculate();
     return newFurniture;
   },
@@ -389,6 +436,7 @@ window.Zoosh.State = {
       item.furnitureName = furnitureData.name;
     }
     Object.assign(item, furnitureData);
+    this.touchDataUpdated();
     this.recalculate();
     return item;
   },
@@ -407,6 +455,7 @@ window.Zoosh.State = {
     }
     this._state.furniture = (this._state.furniture || []).filter(s => s.id !== furnId);
     this._state.srls = this._state.furniture;
+    this.touchDataUpdated();
     this.recalculate();
   },
 
@@ -432,6 +481,7 @@ window.Zoosh.State = {
     const proc = (this._state.processes || []).find(p => p.id === id);
     if (!proc) return null;
     Object.assign(proc, procData);
+    this.touchDataUpdated();
     this.recalculate();
     return proc;
   },
@@ -451,6 +501,7 @@ window.Zoosh.State = {
       avatarColor: empData.avatarColor || '#64748b'
     };
     this._state.employees.push(newEmp);
+    this.touchDataUpdated();
     this.recalculate();
     return newEmp;
   },
@@ -460,6 +511,7 @@ window.Zoosh.State = {
     const emp = (this._state.employees || []).find(e => e.id === id);
     if (!emp) return null;
     Object.assign(emp, empData);
+    this.touchDataUpdated();
     this.recalculate();
     return emp;
   },
@@ -467,6 +519,7 @@ window.Zoosh.State = {
   deleteEmployee(id) {
     this._checkPermission('delete');
     this._state.employees = (this._state.employees || []).filter(e => e.id !== id);
+    this.touchDataUpdated();
     this.recalculate();
   },
 
@@ -483,6 +536,7 @@ window.Zoosh.State = {
       notes: recordData.notes || ''
     };
     this._state.manpowerRecords.push(newRec);
+    this.touchDataUpdated();
     this.recalculate();
     return newRec;
   },
@@ -490,6 +544,7 @@ window.Zoosh.State = {
   deleteManpowerRecord(id) {
     this._checkPermission('delete');
     this._state.manpowerRecords = (this._state.manpowerRecords || []).filter(m => m.id !== id);
+    this.touchDataUpdated();
     this.recalculate();
   },
 
@@ -504,6 +559,7 @@ window.Zoosh.State = {
       steps: flowData.steps || []
     };
     this._state.flowTypes.push(newFlow);
+    this.touchDataUpdated();
     this.persist();
     this.notify();
     return newFlow;
@@ -512,8 +568,56 @@ window.Zoosh.State = {
   deleteFlowType(id) {
     this._checkPermission('delete');
     this._state.flowTypes = (this._state.flowTypes || []).filter(f => f.id !== id);
+    this.touchDataUpdated();
     this.persist();
     this.notify();
+  },
+
+  // ==========================================
+  // 5. OPERATIONAL REMINDERS CRUD
+  // ==========================================
+
+  getReminders() {
+    return this._state.reminders || [];
+  },
+
+  addReminder(reminderData) {
+    this._checkPermission('create');
+    const id = 'rem_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+    const newRem = {
+      id: id,
+      title: (reminderData.title || reminderData.type || 'Reminder').trim(),
+      type: reminderData.type || 'Purchase Order Follow-up',
+      date: reminderData.date || this._state.currentDate,
+      projectId: reminderData.projectId || null,
+      projectName: reminderData.projectName || '',
+      notes: reminderData.notes || '',
+      status: reminderData.status || 'PENDING',
+      priority: reminderData.priority || 'MEDIUM',
+      createdAt: new Date().toISOString()
+    };
+    this._state.reminders = this._state.reminders || [];
+    this._state.reminders.push(newRem);
+    this.touchDataUpdated();
+    this.recalculate();
+    return newRem;
+  },
+
+  updateReminder(id, reminderData) {
+    this._checkPermission('edit');
+    const rem = (this._state.reminders || []).find(r => r.id === id);
+    if (!rem) return null;
+    Object.assign(rem, reminderData);
+    this.touchDataUpdated();
+    this.recalculate();
+    return rem;
+  },
+
+  deleteReminder(id) {
+    this._checkPermission('delete');
+    this._state.reminders = (this._state.reminders || []).filter(r => r.id !== id);
+    this.touchDataUpdated();
+    this.recalculate();
   },
 
   // ==========================================
@@ -525,6 +629,7 @@ window.Zoosh.State = {
     this._checkPermission('reset');
     this._state = window.Zoosh.DemoData.getInitialState();
     this._syncFurnitureAliases();
+    this.touchDataUpdated();
     this.recalculate();
   },
 
@@ -533,6 +638,7 @@ window.Zoosh.State = {
     const initial = window.Zoosh.DemoData.getInitialState();
     this._state = {
       currentDate: window.Zoosh.Config.CURRENT_DATE,
+      lastDataUpdatedAt: new Date().toISOString(),
       employees: initial.employees, // retain basic team template
       flowTypes: initial.flowTypes, // retain standard flow types
       clients: [],
@@ -540,9 +646,11 @@ window.Zoosh.State = {
       furniture: [],
       srls: [],
       processes: [],
-      manpowerRecords: []
+      manpowerRecords: [],
+      reminders: []
     };
     this._syncFurnitureAliases();
+    this.touchDataUpdated();
     this.recalculate();
   },
 
@@ -554,6 +662,7 @@ window.Zoosh.State = {
     const initial = window.Zoosh.DemoData.getInitialState();
     this._state = {
       currentDate: window.Zoosh.Config.CURRENT_DATE,
+      lastDataUpdatedAt: new Date().toISOString(),
       employees: initial.employees,
       flowTypes: initial.flowTypes,
       clients: [],
@@ -561,9 +670,11 @@ window.Zoosh.State = {
       furniture: [],
       srls: [],
       processes: [],
-      manpowerRecords: []
+      manpowerRecords: [],
+      reminders: []
     };
     this._syncFurnitureAliases();
+    this.touchDataUpdated();
     this.recalculate();
   },
 
@@ -573,6 +684,7 @@ window.Zoosh.State = {
     const exportPayload = {
       version: '2.0',
       exportedAt: new Date().toISOString(),
+      lastDataUpdatedAt: this._state.lastDataUpdatedAt,
       currentDate: this._state.currentDate,
       clients: this._state.clients || [],
       projects: this._state.projects || [],
@@ -580,7 +692,8 @@ window.Zoosh.State = {
       processes: this._state.processes || [],
       employees: this._state.employees || [],
       flowTypes: this._state.flowTypes || [],
-      manpowerRecords: this._state.manpowerRecords || []
+      manpowerRecords: this._state.manpowerRecords || [],
+      reminders: this._state.reminders || []
     };
 
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportPayload, null, 2));
@@ -600,7 +713,14 @@ window.Zoosh.State = {
         throw new Error('Invalid schema: Missing projects, employees, or processes.');
       }
       this._state = parsed;
+      if (!this._state.lastDataUpdatedAt) {
+        this._state.lastDataUpdatedAt = new Date().toISOString();
+      }
+      if (!this._state.reminders) {
+        this._state.reminders = [];
+      }
       this._syncFurnitureAliases();
+      this.touchDataUpdated();
       this.recalculate();
       return { success: true };
     } catch (err) {

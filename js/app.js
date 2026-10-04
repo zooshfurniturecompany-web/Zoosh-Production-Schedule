@@ -286,6 +286,14 @@ window.Zoosh.App = {
         alertsCountEl.style.display = 'none';
       }
     }
+
+    const lastUpdatedEl = document.getElementById('topbar-last-updated-text');
+    if (lastUpdatedEl && state) {
+      const calendar = window.Zoosh.Calendar;
+      if (calendar && calendar.formatLastUpdated) {
+        lastUpdatedEl.textContent = `Last updated on: ${calendar.formatLastUpdated(state.lastDataUpdatedAt)}`;
+      }
+    }
   },
 
   showToast(message, duration = 3000) {

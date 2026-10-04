@@ -216,5 +216,28 @@ window.Zoosh.Calendar = {
       scheduledSegments: scheduledSegments,
       endHour: lastSegment ? lastSegment.endHour : 17
     };
+  },
+
+  /**
+   * Format ISO date/time string to: "02 September 2026, 07:45 pm"
+   */
+  formatLastUpdated(dateInput) {
+    if (!dateInput) return '02 September 2026, 07:45 pm';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return String(dateInput);
+
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const hoursStr = String(hours).padStart(2, '0');
+
+    return `${day} ${month} ${year}, ${hoursStr}:${minutes} ${ampm}`;
   }
 };

@@ -166,12 +166,18 @@ window.Zoosh.Views.Projects = {
 
     let badgeClass = 'badge-on-schedule';
     let statusLabel = 'ON TRACK';
-    if (project.deadlineStatus === 'AT_RISK') {
+    if (project.isDelivered || project.status === 'DELIVERED') {
+      badgeClass = 'badge-primary';
+      statusLabel = 'DELIVERED';
+    } else if (project.deadlineStatus === 'AT_RISK') {
       badgeClass = 'badge-at-risk';
       statusLabel = `AT RISK (${project.daysBuffer || 0}d buffer)`;
     } else if (project.deadlineStatus === 'DELAYED') {
       badgeClass = 'badge-delayed';
       statusLabel = `DELAYED (+${project.daysOverdue || 0}d)`;
+    } else if (project.completionPercent === 100) {
+      badgeClass = 'badge-on-schedule';
+      statusLabel = 'COMPLETED';
     }
 
     return `
@@ -227,12 +233,18 @@ window.Zoosh.Views.Projects = {
 
     let badgeClass = 'badge-on-schedule';
     let statusLabel = 'ON TRACK';
-    if (project.deadlineStatus === 'AT_RISK') {
+    if (project.isDelivered || project.status === 'DELIVERED') {
+      badgeClass = 'badge-primary';
+      statusLabel = 'DELIVERED';
+    } else if (project.deadlineStatus === 'AT_RISK') {
       badgeClass = 'badge-at-risk';
       statusLabel = `AT RISK (${project.daysBuffer || 0}d buffer)`;
     } else if (project.deadlineStatus === 'DELAYED') {
       badgeClass = 'badge-delayed';
       statusLabel = `DELAYED (+${project.daysOverdue || 0}d)`;
+    } else if (project.completionPercent === 100) {
+      badgeClass = 'badge-on-schedule';
+      statusLabel = 'COMPLETED';
     }
 
     return `
@@ -410,12 +422,18 @@ window.Zoosh.Views.Projects = {
 
     let badgeClass = 'badge-on-schedule';
     let statusLabel = 'ON TRACK';
-    if (project.deadlineStatus === 'AT_RISK') {
+    if (project.isDelivered || project.status === 'DELIVERED') {
+      badgeClass = 'badge-primary';
+      statusLabel = 'DELIVERED';
+    } else if (project.deadlineStatus === 'AT_RISK') {
       badgeClass = 'badge-at-risk';
       statusLabel = `AT RISK (${project.daysBuffer || 0} days buffer)`;
     } else if (project.deadlineStatus === 'DELAYED') {
       badgeClass = 'badge-delayed';
       statusLabel = `DELAYED (+${project.daysOverdue || 0} days)`;
+    } else if (project.completionPercent === 100) {
+      badgeClass = 'badge-on-schedule';
+      statusLabel = 'COMPLETED';
     }
 
     container.innerHTML = `
@@ -450,7 +468,16 @@ window.Zoosh.Views.Projects = {
             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
               <span class="badge ${badgeClass}" style="font-size: 11px; padding: 4px 10px;">${statusLabel}</span>
               ${canEdit ? `
-                <div style="display: flex; gap: 8px;">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                  ${project.isDelivered || project.status === 'DELIVERED' ? `
+                    <button class="btn btn-secondary btn-sm" style="color: #059669; font-weight: 600;" onclick="window.Zoosh.State.markProjectDelivered('${project.id}', false); window.Zoosh.Views.Projects.openDetail('${project.id}')">
+                      ↩️ Mark Undelivered
+                    </button>
+                  ` : `
+                    <button class="btn btn-secondary btn-sm" style="color: #059669; font-weight: 600;" onclick="window.Zoosh.State.markProjectDelivered('${project.id}', true); window.Zoosh.Views.Projects.openDetail('${project.id}')">
+                      📦 Mark as Delivered
+                    </button>
+                  `}
                   <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Projects.openEditProjectModal('${project.id}')">
                     Edit Deadline
                   </button>

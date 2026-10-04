@@ -19,8 +19,9 @@ window.Zoosh = window.Zoosh || {};
 
 window.Zoosh.DemoData = {
   getInitialState() {
-    // 1. Employees
+    // 1. Employees (14 Active Craftspeople: 8 Carpenter, 2 Upholstery, 4 Polishing)
     const employees = [
+      // 8 Carpenters
       {
         id: 'emp_rajan',
         name: 'Rajan',
@@ -77,6 +78,65 @@ window.Zoosh.DemoData = {
         avatarColor: '#10b981'
       },
       {
+        id: 'emp_vijayan',
+        name: 'Vijayan',
+        department: 'Carpentry',
+        secondaryDepartments: [],
+        joiningDate: '2021-11-12',
+        active: true,
+        standardHoursPerDay: 8,
+        overtimeAvailable: true,
+        avatarColor: '#059669'
+      },
+      {
+        id: 'emp_babu',
+        name: 'Babu',
+        department: 'Carpentry',
+        secondaryDepartments: [],
+        joiningDate: '2022-05-18',
+        active: true,
+        standardHoursPerDay: 8,
+        overtimeAvailable: false,
+        avatarColor: '#34d399'
+      },
+      {
+        id: 'emp_anand',
+        name: 'Anand',
+        department: 'Carpentry',
+        secondaryDepartments: [],
+        joiningDate: '2023-02-01',
+        active: true,
+        standardHoursPerDay: 8,
+        overtimeAvailable: true,
+        avatarColor: '#10b981'
+      },
+
+      // 2 Upholstery
+      {
+        id: 'emp_saddique',
+        name: 'Saddique',
+        department: 'Upholstery',
+        secondaryDepartments: [],
+        joiningDate: '2021-09-01',
+        active: true,
+        standardHoursPerDay: 8,
+        overtimeAvailable: true,
+        avatarColor: '#3b82f6'
+      },
+      {
+        id: 'emp_faizal',
+        name: 'Faizal',
+        department: 'Upholstery',
+        secondaryDepartments: [],
+        joiningDate: '2022-04-10',
+        active: true,
+        standardHoursPerDay: 8,
+        overtimeAvailable: true,
+        avatarColor: '#2563eb'
+      },
+
+      // 4 Polishing
+      {
         id: 'emp_rajesh',
         name: 'Rajesh',
         department: 'Polish',
@@ -88,15 +148,37 @@ window.Zoosh.DemoData = {
         avatarColor: '#f59e0b'
       },
       {
-        id: 'emp_saddique',
-        name: 'Saddique',
-        department: 'Upholstery',
+        id: 'emp_shaji',
+        name: 'Shaji',
+        department: 'Polish',
         secondaryDepartments: [],
-        joiningDate: '2021-09-01',
+        joiningDate: '2021-07-22',
         active: true,
         standardHoursPerDay: 8,
         overtimeAvailable: true,
-        avatarColor: '#3b82f6'
+        avatarColor: '#d97706'
+      },
+      {
+        id: 'emp_pradeep',
+        name: 'Pradeep',
+        department: 'Polish',
+        secondaryDepartments: [],
+        joiningDate: '2022-08-15',
+        active: true,
+        standardHoursPerDay: 8,
+        overtimeAvailable: false,
+        avatarColor: '#b45309'
+      },
+      {
+        id: 'emp_murali',
+        name: 'Murali',
+        department: 'Polish',
+        secondaryDepartments: [],
+        joiningDate: '2023-01-10',
+        active: true,
+        standardHoursPerDay: 8,
+        overtimeAvailable: true,
+        avatarColor: '#f59e0b'
       }
     ];
 
@@ -150,20 +232,28 @@ window.Zoosh.DemoData = {
         notes: 'Luxury villa interior client'
       },
       {
-        id: 'client_hafeez',
+        id: 'client_rajeev',
         srl: 102,
-        name: 'Hafeez',
-        location: 'Kochi',
+        name: 'Rajeev Babu',
+        location: 'Bangalore',
         phone: '+91 98471 23456',
-        notes: 'Contemporary duplex project'
+        notes: 'Penthouse custom furnishing project'
       },
       {
-        id: 'client_wayanad',
+        id: 'client_swalih',
         srl: 103,
-        name: 'Wayanad Hospitality',
-        location: 'Wayanad',
+        name: 'Swalih',
+        location: 'Pattambi',
         phone: '+91 98472 34567',
-        notes: 'Eco resort commercial project'
+        notes: 'Traditional teak residence'
+      },
+      {
+        id: 'client_pranav',
+        srl: 104,
+        name: 'Pranav',
+        location: 'Kunnamkulam',
+        phone: '+91 98473 45678',
+        notes: 'Commercial corporate office suites'
       }
     ];
 
@@ -174,39 +264,56 @@ window.Zoosh.DemoData = {
         clientId: 'client_sreelal',
         clientSrl: 101,
         clientName: 'Sreelal',
-        name: 'Sreelal - Calicut',
+        name: 'Sreelal',
         location: 'Calicut',
         confirmedDate: '2026-09-12',
-        deliveryDeadline: '2026-10-06', // Tight deadline -> triggers AT RISK
+        deliveryDeadline: '2026-10-06',
         notes: 'High priority luxury villa interior project. Strict delivery deadline before housewarming.',
-        furnitureIds: ['furn_101', 'furn_102', 'furn_103'],
-        srlIds: ['furn_101', 'furn_102', 'furn_103']
+        furnitureIds: ['furn_101'],
+        srlIds: ['furn_101'],
+        isDelivered: false
       },
       {
-        id: 'proj_hafeez',
-        clientId: 'client_hafeez',
+        id: 'proj_rajeev',
+        clientId: 'client_rajeev',
         clientSrl: 102,
-        clientName: 'Hafeez',
-        name: 'Villa Hafeez - Kochi',
-        location: 'Kochi',
-        confirmedDate: '2026-09-08',
+        clientName: 'Rajeev Babu',
+        name: 'Rajeev Babu',
+        location: 'Bangalore',
+        confirmedDate: '2026-09-15',
         deliveryDeadline: '2026-10-20',
-        notes: 'Living room and master suite custom walnut furniture.',
-        furnitureIds: ['furn_104', 'furn_105'],
-        srlIds: ['furn_104', 'furn_105']
+        notes: 'Living room custom sofa set with premium Italian velvet upholstery.',
+        furnitureIds: ['furn_102'],
+        srlIds: ['furn_102'],
+        isDelivered: false
       },
       {
-        id: 'proj_resort',
-        clientId: 'client_wayanad',
+        id: 'proj_swalih',
+        clientId: 'client_swalih',
         clientSrl: 103,
-        clientName: 'Wayanad Hospitality',
-        name: 'Wayanad Eco Resort',
-        location: 'Wayanad',
+        clientName: 'Swalih',
+        name: 'Swalih',
+        location: 'Pattambi',
         confirmedDate: '2026-09-18',
-        deliveryDeadline: '2026-10-28',
-        notes: 'Cottage bedroom furniture & teak balconies.',
-        furnitureIds: ['furn_106', 'furn_107'],
-        srlIds: ['furn_106', 'furn_107']
+        deliveryDeadline: '2026-10-25',
+        notes: 'Master suite teak wardrobe & classical four-poster bed.',
+        furnitureIds: ['furn_103'],
+        srlIds: ['furn_103'],
+        isDelivered: false
+      },
+      {
+        id: 'proj_pranav',
+        clientId: 'client_pranav',
+        clientSrl: 104,
+        clientName: 'Pranav',
+        name: 'Pranav',
+        location: 'Kunnamkulam',
+        confirmedDate: '2026-09-05',
+        deliveryDeadline: '2026-09-27',
+        notes: 'Executive cabin walnut desk, conference credenza & storage cabinet.',
+        furnitureIds: ['furn_104'],
+        srlIds: ['furn_104'],
+        isDelivered: false
       }
     ];
 
@@ -215,78 +322,53 @@ window.Zoosh.DemoData = {
       {
         id: 'furn_101',
         projectId: 'proj_sreelal',
-        name: 'Dining Table (8 Seater)',
-        furnitureName: 'Dining Table (8 Seater)',
-        flowTypeId: 'flow_type_1',
+        name: 'Dining Table & Chairs Suite',
+        furnitureName: 'Dining Table & Chairs Suite',
+        flowTypeId: 'flow_type_2',
         startDate: '2026-09-26',
         status: 'IN_PROGRESS',
         processIds: ['proc_101_1', 'proc_101_2', 'proc_101_3']
       },
       {
         id: 'furn_102',
-        projectId: 'proj_sreelal',
-        name: 'Dining Chairs (Set of 6)',
-        furnitureName: 'Dining Chairs (Set of 6)',
+        projectId: 'proj_rajeev',
+        name: 'L-Shape Sectional Sofa',
+        furnitureName: 'L-Shape Sectional Sofa',
         flowTypeId: 'flow_type_2',
-        startDate: '2026-09-28',
+        startDate: '2026-09-26',
         status: 'IN_PROGRESS',
         processIds: ['proc_102_1', 'proc_102_2', 'proc_102_3']
       },
       {
         id: 'furn_103',
-        projectId: 'proj_sreelal',
-        name: 'Crockery Credenza',
-        furnitureName: 'Crockery Credenza',
+        projectId: 'proj_swalih',
+        name: 'Master Suite Teak Wardrobe',
+        furnitureName: 'Master Suite Teak Wardrobe',
         flowTypeId: 'flow_type_1',
-        startDate: '2026-09-29',
-        status: 'NOT_STARTED',
+        startDate: '2026-10-01',
+        status: 'IN_PROGRESS',
         processIds: ['proc_103_1', 'proc_103_2', 'proc_103_3']
       },
       {
         id: 'furn_104',
-        projectId: 'proj_hafeez',
-        name: 'L-Shape Sectional Sofa',
-        furnitureName: 'L-Shape Sectional Sofa',
-        flowTypeId: 'flow_type_2',
-        startDate: '2026-09-24',
-        status: 'IN_PROGRESS',
-        processIds: ['proc_104_1', 'proc_104_2', 'proc_104_3']
-      },
-      {
-        id: 'furn_105',
-        projectId: 'proj_hafeez',
-        name: 'Carved Teak King Bed',
-        furnitureName: 'Carved Teak King Bed',
-        flowTypeId: 'flow_type_5',
-        startDate: '2026-09-28',
-        status: 'IN_PROGRESS',
-        processIds: ['proc_105_1', 'proc_105_2', 'proc_105_3']
-      },
-      {
-        id: 'furn_106',
-        projectId: 'proj_resort',
-        name: 'Balcony Lounge Chairs (Pair)',
-        furnitureName: 'Balcony Lounge Chairs (Pair)',
-        flowTypeId: 'flow_type_3',
-        startDate: '2026-09-28',
-        status: 'IN_PROGRESS',
-        processIds: ['proc_106_1', 'proc_106_2', 'proc_106_3']
-      },
-      {
-        id: 'furn_107',
-        projectId: 'proj_resort',
-        name: 'Teak Coffee Table',
-        furnitureName: 'Teak Coffee Table',
+        projectId: 'proj_pranav',
+        name: 'Executive Walnut Desk',
+        furnitureName: 'Executive Walnut Desk',
         flowTypeId: 'flow_type_1',
-        startDate: '2026-10-02',
-        status: 'NOT_STARTED',
-        processIds: ['proc_107_1', 'proc_107_2', 'proc_107_3']
+        startDate: '2026-09-20',
+        status: 'COMPLETED',
+        processIds: ['proc_104_1', 'proc_104_2', 'proc_104_3']
       }
     ];
 
     // 6. Processes (Production sub-tasks belonging to Furniture)
+    // Manpower-weighted progress calculation:
+    // Sreelal: Carpentry (5, done) + Polish (2, done) + Upholstery (3, active today) = 10 units, 7 completed = 70%
+    // Rajeev Babu: Carpentry (4, 50% done = 2 units, active today) + Polish (3) + Upholstery (3) = 10 units, 2 completed = 20%
+    // Swalih: Carpentry (7, done) + Polish (7, starts 1 Oct) + Carpentry (6) = 20 units, 7 completed = 35% (Non Active today)
+    // Pranav: Carpentry (4, done) + Polish (4, done) + Carpentry (2, done) = 10 units, 10 completed = 100% (Completed)
     const processes = [
-      // furn_101 - Dining Table
+      // Sreelal - Dining Table Suite (Total manpower: 10, completed: 7 -> 70%)
       {
         id: 'proc_101_1',
         furnitureId: 'furn_101',
@@ -295,9 +377,10 @@ window.Zoosh.DemoData = {
         sequence: 1,
         department: 'Carpentry',
         employeeId: 'emp_rajan',
-        durationDays: 3, // 26 Sep -> 29 Sep (includes leave conflict on 29 Sep!)
-        status: 'IN_PROGRESS',
-        progressPercent: 65,
+        manpower: 5,
+        durationDays: 3,
+        status: 'COMPLETED',
+        progressPercent: 100,
         notes: 'Solid teak table top joinery & apron'
       },
       {
@@ -308,9 +391,10 @@ window.Zoosh.DemoData = {
         sequence: 2,
         department: 'Polish',
         employeeId: 'emp_rajesh',
-        durationDays: 2.5,
-        status: 'PENDING',
-        progressPercent: 0,
+        manpower: 2,
+        durationDays: 2,
+        status: 'COMPLETED',
+        progressPercent: 100,
         notes: 'Natural PU matt lacquer finish'
       },
       {
@@ -319,262 +403,149 @@ window.Zoosh.DemoData = {
         srlId: 'furn_101',
         projectId: 'proj_sreelal',
         sequence: 3,
-        department: 'Carpentry',
-        employeeId: 'emp_santhosh',
-        durationDays: 1,
-        status: 'PENDING',
+        department: 'Upholstery',
+        employeeId: 'emp_saddique',
+        manpower: 3,
+        durationDays: 2,
+        status: 'IN_PROGRESS',
         progressPercent: 0,
-        notes: 'Final leg leveling & anti-scratch felt'
+        notes: 'High density foam & leatherette seats'
       },
 
-      // furn_102 - Dining Chairs
+      // Rajeev Babu - Sectional Sofa (Total manpower: 10, completed: 2 -> 20%)
       {
         id: 'proc_102_1',
         furnitureId: 'furn_102',
         srlId: 'furn_102',
-        projectId: 'proj_sreelal',
+        projectId: 'proj_rajeev',
         sequence: 1,
         department: 'Carpentry',
         employeeId: 'emp_satheesh',
+        manpower: 4,
         durationDays: 3,
         status: 'IN_PROGRESS',
-        progressPercent: 20,
-        notes: '6 chair frames mortise and tenon joinery'
+        progressPercent: 50, // 50% of 4 = 2 completed units
+        notes: 'Hardwood frame & webbed spring base'
       },
       {
         id: 'proc_102_2',
         furnitureId: 'furn_102',
         srlId: 'furn_102',
-        projectId: 'proj_sreelal',
+        projectId: 'proj_rajeev',
         sequence: 2,
         department: 'Polish',
-        employeeId: 'emp_rajesh',
+        employeeId: 'emp_shaji',
+        manpower: 3,
         durationDays: 2,
         status: 'PENDING',
         progressPercent: 0,
-        notes: 'Dark walnut stain to match table'
+        notes: 'Exposed teak base frame buffing'
       },
       {
         id: 'proc_102_3',
         furnitureId: 'furn_102',
         srlId: 'furn_102',
-        projectId: 'proj_sreelal',
+        projectId: 'proj_rajeev',
         sequence: 3,
         department: 'Upholstery',
-        employeeId: 'emp_saddique',
-        durationDays: 1.5,
+        employeeId: 'emp_faizal',
+        manpower: 3,
+        durationDays: 2,
         status: 'PENDING',
         progressPercent: 0,
-        notes: 'High density foam with beige linen fabric'
+        notes: 'Deep tufted cushions and arm padding'
       },
 
-      // furn_103 - Crockery Credenza
+      // Swalih - Teak Wardrobe (Total manpower: 20, completed: 7 -> 35%)
       {
         id: 'proc_103_1',
         furnitureId: 'furn_103',
         srlId: 'furn_103',
-        projectId: 'proj_sreelal',
+        projectId: 'proj_swalih',
         sequence: 1,
         department: 'Carpentry',
-        employeeId: 'emp_manikandan',
-        durationDays: 3.5,
-        status: 'PENDING',
-        progressPercent: 0,
-        notes: 'Carcass assembly & soft-close drawers'
+        employeeId: 'emp_santhosh',
+        manpower: 7,
+        durationDays: 3,
+        status: 'COMPLETED',
+        progressPercent: 100,
+        notes: 'Carcass joinery and shutter mortising'
       },
       {
         id: 'proc_103_2',
         furnitureId: 'furn_103',
         srlId: 'furn_103',
-        projectId: 'proj_sreelal',
+        projectId: 'proj_swalih',
         sequence: 2,
         department: 'Polish',
-        employeeId: 'emp_rajesh',
-        durationDays: 2.5,
+        employeeId: 'emp_pradeep',
+        manpower: 7,
+        durationDays: 3,
         status: 'PENDING',
         progressPercent: 0,
-        notes: 'Fluted front staining'
+        notes: 'Hand rubbed walnut stain & sealer'
       },
       {
         id: 'proc_103_3',
         furnitureId: 'furn_103',
         srlId: 'furn_103',
-        projectId: 'proj_sreelal',
+        projectId: 'proj_swalih',
         sequence: 3,
         department: 'Carpentry',
         employeeId: 'emp_manikandan',
-        durationDays: 1,
+        manpower: 6,
+        durationDays: 2,
         status: 'PENDING',
         progressPercent: 0,
-        notes: 'Hardware mounting & glass shelf insertion'
+        notes: 'Internal soft-close hardware & handles'
       },
 
-      // furn_104 - L-Shape Sofa
+      // Pranav - Executive Desk (Total manpower: 10, completed: 10 -> 100%)
       {
         id: 'proc_104_1',
         furnitureId: 'furn_104',
         srlId: 'furn_104',
-        projectId: 'proj_hafeez',
+        projectId: 'proj_pranav',
         sequence: 1,
         department: 'Carpentry',
         employeeId: 'emp_sasi',
-        durationDays: 2.5,
+        manpower: 4,
+        durationDays: 2,
         status: 'COMPLETED',
         progressPercent: 100,
-        notes: 'Treated pine hardwood frame'
+        notes: 'Solid walnut executive desk frame'
       },
       {
         id: 'proc_104_2',
         furnitureId: 'furn_104',
         srlId: 'furn_104',
-        projectId: 'proj_hafeez',
+        projectId: 'proj_pranav',
         sequence: 2,
         department: 'Polish',
-        employeeId: 'emp_rajesh',
-        durationDays: 1,
-        status: 'IN_PROGRESS',
-        progressPercent: 70,
-        notes: 'Exposed teak base plinth'
+        employeeId: 'emp_murali',
+        manpower: 4,
+        durationDays: 2,
+        status: 'COMPLETED',
+        progressPercent: 100,
+        notes: 'Clear satin polyurethane coat'
       },
       {
         id: 'proc_104_3',
         furnitureId: 'furn_104',
         srlId: 'furn_104',
-        projectId: 'proj_hafeez',
-        sequence: 3,
-        department: 'Upholstery',
-        employeeId: 'emp_saddique',
-        durationDays: 4,
-        status: 'PENDING',
-        progressPercent: 0,
-        notes: 'Pocket spring core + goose feather blend cushions'
-      },
-
-      // furn_105 - Carved Teak King Bed
-      {
-        id: 'proc_105_1',
-        furnitureId: 'furn_105',
-        srlId: 'furn_105',
-        projectId: 'proj_hafeez',
-        sequence: 1,
-        department: 'Turning',
-        employeeId: 'emp_santhosh',
-        durationDays: 1.5,
-        status: 'IN_PROGRESS',
-        progressPercent: 40,
-        notes: 'Turning bedposts on lathe'
-      },
-      {
-        id: 'proc_105_2',
-        furnitureId: 'furn_105',
-        srlId: 'furn_105',
-        projectId: 'proj_hafeez',
-        sequence: 2,
-        department: 'Carpentry',
-        employeeId: 'emp_sasi',
-        durationDays: 3,
-        status: 'PENDING',
-        progressPercent: 0,
-        notes: 'Headboard fretwork & frame assembly'
-      },
-      {
-        id: 'proc_105_3',
-        furnitureId: 'furn_105',
-        srlId: 'furn_105',
-        projectId: 'proj_hafeez',
-        sequence: 3,
-        department: 'Polish',
-        employeeId: 'emp_rajesh',
-        durationDays: 2.5,
-        status: 'PENDING',
-        progressPercent: 0,
-        notes: 'Hand rubbed teak oil finish'
-      },
-
-      // furn_106 - Balcony Lounge Chairs
-      {
-        id: 'proc_106_1',
-        furnitureId: 'furn_106',
-        srlId: 'furn_106',
-        projectId: 'proj_resort',
-        sequence: 1,
-        department: 'Metal',
-        employeeId: 'emp_sasi',
-        durationDays: 2,
-        status: 'IN_PROGRESS',
-        progressPercent: 50,
-        notes: 'Powder-coated aluminum chassis'
-      },
-      {
-        id: 'proc_106_2',
-        furnitureId: 'furn_106',
-        srlId: 'furn_106',
-        projectId: 'proj_resort',
-        sequence: 2,
-        department: 'Carpentry',
-        employeeId: 'emp_satheesh',
-        durationDays: 2,
-        status: 'PENDING',
-        progressPercent: 0,
-        notes: 'Teak slat armrests & backrest weave'
-      },
-      {
-        id: 'proc_106_3',
-        furnitureId: 'furn_106',
-        srlId: 'furn_106',
-        projectId: 'proj_resort',
-        sequence: 3,
-        department: 'Polish',
-        employeeId: 'emp_rajesh',
-        durationDays: 1.5,
-        status: 'PENDING',
-        progressPercent: 0,
-        notes: 'Exterior weather-proof polyurethane'
-      },
-
-      // furn_107 - Coffee Table
-      {
-        id: 'proc_107_1',
-        furnitureId: 'furn_107',
-        srlId: 'furn_107',
-        projectId: 'proj_resort',
-        sequence: 1,
-        department: 'Carpentry',
-        employeeId: 'emp_manikandan',
-        durationDays: 2,
-        status: 'PENDING',
-        progressPercent: 0,
-        notes: 'Organic live edge teak slab fabrication'
-      },
-      {
-        id: 'proc_107_2',
-        furnitureId: 'furn_107',
-        srlId: 'furn_107',
-        projectId: 'proj_resort',
-        sequence: 2,
-        department: 'Polish',
-        employeeId: 'emp_rajesh',
-        durationDays: 1.5,
-        status: 'PENDING',
-        progressPercent: 0,
-        notes: 'Clear epoxy river fill & satin buff'
-      },
-      {
-        id: 'proc_107_3',
-        furnitureId: 'furn_107',
-        srlId: 'furn_107',
-        projectId: 'proj_resort',
+        projectId: 'proj_pranav',
         sequence: 3,
         department: 'Carpentry',
-        employeeId: 'emp_manikandan',
-        durationDays: 0.5,
-        status: 'PENDING',
-        progressPercent: 0,
-        notes: 'Hairpin leg fastening and packing'
+        employeeId: 'emp_vijayan',
+        manpower: 2,
+        durationDays: 1,
+        status: 'COMPLETED',
+        progressPercent: 100,
+        notes: 'Cable grommets & brass drawer pulls'
       }
     ];
 
-    // 7. Manpower Records (Leaves, Overtime, Join/Exit)
+    // 7. Manpower Records (Leaves, Overtime, Capacity)
     const manpowerRecords = [
       {
         id: 'leave_rajan_1',
@@ -596,8 +567,57 @@ window.Zoosh.DemoData = {
       }
     ];
 
+    // 8. Operational Reminders (Based on Production Schedule)
+    const reminders = [
+      {
+        id: 'rem_1',
+        title: 'Issue PO for German Soft-Close Drawer Channels',
+        type: 'Purchase Order Follow-up',
+        date: '2026-09-28',
+        projectId: 'proj_sreelal',
+        projectName: 'Sreelal - Calicut',
+        status: 'PENDING',
+        priority: 'HIGH',
+        notes: 'Requires approval for Blum Tandembox runners'
+      },
+      {
+        id: 'rem_2',
+        title: 'Verify Fabric Dispatch with Bangalore Textile Mills',
+        type: 'Purchase Order Follow-up',
+        date: '2026-09-28',
+        projectId: 'proj_rajeev',
+        projectName: 'Rajeev Babu - Bangalore',
+        status: 'PENDING',
+        priority: 'MEDIUM',
+        notes: 'Invoice #TM-8941 for Italian velvet'
+      },
+      {
+        id: 'rem_3',
+        title: 'Final inspection call with Architect before dispatch',
+        type: 'Deadline Follow-up',
+        date: '2026-09-28',
+        projectId: 'proj_sreelal',
+        projectName: 'Sreelal - Calicut',
+        status: 'PENDING',
+        priority: 'HIGH',
+        notes: 'Verify polish sheen and hardware fit'
+      },
+      {
+        id: 'rem_4',
+        title: 'Send CNC carved panels to Perinthalmanna Job Work Unit',
+        type: 'Job Work Sending',
+        date: '2026-09-28',
+        projectId: 'proj_swalih',
+        projectName: 'Swalih - Pattambi',
+        status: 'PENDING',
+        priority: 'HIGH',
+        notes: 'Intricate floral relief carving for wardrobe shutter inserts'
+      }
+    ];
+
     return {
       currentDate: '2026-09-28',
+      lastDataUpdatedAt: '2026-09-02T19:45:00.000Z',
       employees,
       flowTypes,
       clients,
@@ -605,7 +625,8 @@ window.Zoosh.DemoData = {
       furniture,
       srls: furniture, // alias for zero-disruption backwards compatibility
       processes,
-      manpowerRecords
+      manpowerRecords,
+      reminders
     };
   }
 };

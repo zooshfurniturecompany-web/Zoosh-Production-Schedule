@@ -210,10 +210,15 @@ window.Zoosh.Scheduler = {
 
       project.projectedFinishDate = maxFinish;
 
+      const completion = this.calculateProjectCompletion(project, cloned.srls || cloned.furniture, cloned.processes);
+      project.completionPercent = completion.percent;
+      project.totalManpowerUnits = completion.totalUnits;
+      project.completedManpowerUnits = completion.completedUnits;
+      project.isCompleted = completion.isAllCompleted;
+
       const completedCount = projSrls.filter(s => s.status === 'COMPLETED').length;
       project.completedSrlCount = completedCount;
       project.totalSrlCount = projSrls.length;
-      project.completionPercent = Math.round((completedCount / projSrls.length) * 100);
 
       if (!project.deliveryDeadline) {
         project.deadlineStatus = 'ON_SCHEDULE';
@@ -340,13 +345,208 @@ window.Zoosh.Scheduler = {
       });
     }
 
+    const totalProjects = this.calculateTotalProjects(cloned, currentDate);
+    const employeeCounts = this.calculateEmployeeCounts(cloned);
+    const todaysReminders = this.getTodaysReminders(cloned, currentDate);
+
     cloned.computed = {
       leaveConflicts,
       todayTasks,
       alerts,
-      deptWorkload
+      deptWorkload,
+      totalProjects,
+      employeeCounts,
+      todaysReminders,
+      projectStatuses: totalProjects.projectStatuses
     };
 
     return cloned;
+  },
+
+  /**
+   * Calculate real manpower-weighted progress percentage for a project
+   * Formula: (Completed Manpower Units / Total Required Manpower Units) * 100
+   */
+  calculateProjectCompletion(project, allFurniture, allProcesses) {
+    if (!project) return { percent: 0, totalUnits: 0, completedUnits: 0, isAllCompleted: false };
+
+    const furnItems = (allFurniture || []).filter(f => f.projectId === project.id);
+    if (furnItems.length === 0) {
+      return { percent: 0, totalUnits: 0, completedUnits: 0, isAllCompleted: false };
+    }
+
+    const furnIds = new Set(furnItems.map(f => f.id));
+    const procs = (allProcesses || []).filter(p => furnIds.has(p.furnitureId || p.srlId));
+    if (procs.length === 0) {
+      return { percent: 0, totalUnits: 0, completedUnits: 0, isAllCompleted: false };
+    }
+
+    let totalUnits = 0;
+    let completedUnits = 0;
+    let allCompleted = true;
+
+    procs.forEach(p => {
+      const req = parseFloat(p.manpower !== undefined ? p.manpower : (p.manpowerUnits !== undefined ? p.manpowerUnits : p.durationDays)) || 1;
+      totalUnits += req;
+
+      if (p.status === 'COMPLETED') {
+        completedUnits += req;
+      } else {
+        allCompleted = false;
+        if (p.status === 'IN_PROGRESS') {
+          const prog = Math.max(0, Math.min(100, parseFloat(p.progressPercent) || 0));
+          completedUnits += req * (prog / 100);
+        }
+      }
+    });
+
+    let percent = totalUnits > 0 ? Math.round((completedUnits / totalUnits) * 100) : 0;
+    percent = Math.max(0, Math.min(100, percent));
+    if (allCompleted && procs.length > 0) {
+      percent = 100;
+    }
+
+    return {
+      percent,
+      totalUnits,
+      completedUnits: Math.round(completedUnits * 100) / 100,
+      isAllCompleted: allCompleted && procs.length > 0
+    };
+  },
+
+  /**
+   * Calculate Total Projects count and breakdown (Active, Non Active, Completed)
+   * Delivered projects are strictly excluded.
+   */
+  calculateTotalProjects(state, currentDate) {
+    if (!state) return { total: 0, active: 0, nonActive: 0, completed: 0, projectStatuses: [] };
+
+    const currDate = currentDate || state.currentDate || (window.Zoosh.Config ? window.Zoosh.Config.CURRENT_DATE : '2026-09-28');
+    const allProjects = state.projects || [];
+    const allFurniture = state.furniture || state.srls || [];
+    const allProcesses = state.processes || [];
+
+    // Filter out projects marked as Delivered
+    const undeliveredProjects = allProjects.filter(p => !p.isDelivered && p.status !== 'DELIVERED' && !p.delivered);
+
+    let activeCount = 0;
+    let nonActiveCount = 0;
+    let completedCount = 0;
+    const projectStatuses = [];
+
+    undeliveredProjects.forEach(project => {
+      const completion = this.calculateProjectCompletion(project, allFurniture, allProcesses);
+      const furnItems = allFurniture.filter(f => f.projectId === project.id);
+      const furnIds = new Set(furnItems.map(f => f.id));
+      const procs = allProcesses.filter(p => furnIds.has(p.furnitureId || p.srlId));
+
+      let computedStatus = 'NON_ACTIVE';
+
+      if (completion.isAllCompleted) {
+        computedStatus = 'COMPLETED';
+        completedCount++;
+      } else {
+        // Check if any process belonging to this project has scheduledSegment on currDate
+        const hasWorkToday = procs.some(proc => 
+          (proc.scheduledSegments || []).some(seg => seg.dateStr === currDate)
+        );
+
+        if (hasWorkToday) {
+          computedStatus = 'ACTIVE';
+          activeCount++;
+        } else {
+          computedStatus = 'NON_ACTIVE';
+          nonActiveCount++;
+        }
+      }
+
+      let displayName = project.name;
+      if (project.location) {
+        if (displayName.includes(' - ') || displayName.includes(' – ')) {
+          displayName = displayName.replace(/\s*[-–]\s*/, ' – ');
+        } else {
+          displayName = `${project.name} – ${project.location}`;
+        }
+      }
+
+      projectStatuses.push({
+        id: project.id,
+        name: project.name,
+        location: project.location || '',
+        displayName,
+        percent: completion.percent,
+        status: computedStatus,
+        deliveryDeadline: project.deliveryDeadline,
+        totalUnits: completion.totalUnits,
+        completedUnits: completion.completedUnits
+      });
+    });
+
+    return {
+      total: undeliveredProjects.length,
+      active: activeCount,
+      nonActive: nonActiveCount,
+      completed: completedCount,
+      projectStatuses
+    };
+  },
+
+  /**
+   * Calculate active employees count and dynamic breakdown by department
+   */
+  calculateEmployeeCounts(state) {
+    if (!state) return { total: 0, byDepartment: {} };
+
+    const activeEmployees = (state.employees || []).filter(e => e.active !== false);
+    const byDepartment = {};
+
+    activeEmployees.forEach(e => {
+      let dept = (e.department || 'Other').trim();
+      if (dept.toLowerCase() === 'carpentry' || dept.toLowerCase() === 'carpenter') dept = 'Carpenter';
+      else if (dept.toLowerCase() === 'polish' || dept.toLowerCase() === 'polishing') dept = 'Polishing';
+      else if (dept.toLowerCase() === 'upholstery') dept = 'Upholstery';
+
+      byDepartment[dept] = (byDepartment[dept] || 0) + 1;
+    });
+
+    return {
+      total: activeEmployees.length,
+      byDepartment
+    };
+  },
+
+  /**
+   * Surface operational reminders due on or before currentDate
+   */
+  getTodaysReminders(state, currentDate) {
+    if (!state) return { total: 0, byType: {}, list: [] };
+
+    const currDate = currentDate || state.currentDate || (window.Zoosh.Config ? window.Zoosh.Config.CURRENT_DATE : '2026-09-28');
+    const reminders = state.reminders || [];
+
+    const dueReminders = reminders.filter(r => {
+      if (r.status === 'DONE') return false;
+      if (!r.date) return true;
+      return r.date <= currDate;
+    });
+
+    const byType = {};
+    dueReminders.forEach(r => {
+      const type = (r.type || 'Other').trim();
+      byType[type] = (byType[type] || 0) + 1;
+    });
+
+    return {
+      total: dueReminders.length,
+      byType,
+      list: dueReminders
+    };
+  },
+
+  /**
+   * Get timestamp of last real data mutation
+   */
+  getLastDataUpdatedAt(state) {
+    return (state && state.lastDataUpdatedAt) || '2026-09-02T19:45:00.000Z';
   }
 };

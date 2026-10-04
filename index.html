@@ -157,9 +157,9 @@
       <!-- Desktop Top Control Bar (>768px) -->
       <header class="control-topbar desktop-only">
         <div class="topbar-left">
-          <div class="date-badge">
+          <div class="date-badge" id="topbar-date-badge">
             <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
-            <span>Monday, 28 September 2026</span>
+            <span id="topbar-last-updated-text">Last updated on: 02 September 2026, 07:45 pm</span>
           </div>
           <span id="cloud-sync-badge" class="badge badge-on-schedule">
             <span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
@@ -171,15 +171,6 @@
         </div>
 
         <div class="topbar-right">
-          <button class="btn btn-secondary btn-sm" id="topbar-btn-new-client" onclick="window.Zoosh.AddClientModal.open()">
-            + Client / SRL
-          </button>
-          <button class="btn btn-secondary btn-sm" id="topbar-btn-new-proj" onclick="window.Zoosh.Views.Projects.openAddModal()">
-            + New Project
-          </button>
-          <button class="btn btn-primary btn-sm" id="topbar-btn-add-furn" onclick="window.Zoosh.AddFurnitureWizard.open()">
-            + Add Furniture
-          </button>
           <div class="user-topbar-profile" id="user-topbar-profile"></div>
         </div>
       </header>

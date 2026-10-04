@@ -30,6 +30,7 @@ window.Zoosh.Views.Schedule = {
       this.mobileInitialized = true;
     }
 
+    const state = window.Zoosh.State.getState();
     const calendar = window.Zoosh.Calendar;
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const currentMonthLabel = `${months[this.currentMonth]} ${this.currentYear}`;
@@ -43,7 +44,10 @@ window.Zoosh.Views.Schedule = {
           <h2 class="view-header-title">Production Schedule</h2>
           <div class="view-header-subtitle">Real-time factory timeline &amp; forward process sequencing</div>
         </div>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn btn-secondary" onclick="window.Zoosh.Views.Overview.openRemindersModal()" title="View and add schedule reminders">
+            🔔 Reminders ${(state.reminders || []).length > 0 ? `<span class="badge badge-primary" style="font-size: 10px; padding: 2px 6px; margin-left: 4px;">${(state.reminders || []).filter(r => r.status !== 'DONE').length}</span>` : ''}
+          </button>
           ${canCreate ? `
             <button class="btn btn-primary" onclick="window.Zoosh.AddFurnitureWizard.open()">
               <span>+</span> Add Furniture
@@ -648,11 +652,34 @@ window.Zoosh.Views.Schedule = {
         </div>
 
         ${canEdit ? `
-          <div class="form-group" style="margin-top: 8px;">
-            <label class="form-label">Duration (Days)</label>
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <input type="number" step="0.25" min="0.25" max="30" class="form-input" id="inspect-proc-duration" value="${proc.durationDays}" />
-              <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary);">days</span>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+            <div class="form-group">
+              <label class="form-label">Production Status</label>
+              <select id="inspect-proc-status" class="form-select" onchange="const prog = document.getElementById('inspect-proc-progress'); if (this.value === 'COMPLETED') prog.value = 100; else if (this.value === 'PENDING') prog.value = 0;">
+                <option value="PENDING" ${proc.status === 'PENDING' ? 'selected' : ''}>PENDING</option>
+                <option value="IN_PROGRESS" ${proc.status === 'IN_PROGRESS' ? 'selected' : ''}>IN_PROGRESS</option>
+                <option value="COMPLETED" ${proc.status === 'COMPLETED' ? 'selected' : ''}>COMPLETED</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Progress (%)</label>
+              <input type="number" min="0" max="100" class="form-input" id="inspect-proc-progress" value="${proc.progressPercent || 0}" />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label class="form-label">Duration (Days)</label>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="number" step="0.25" min="0.25" max="30" class="form-input" id="inspect-proc-duration" value="${proc.durationDays}" />
+                <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">days</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Manpower Units</label>
+              <input type="number" step="0.5" min="0.5" class="form-input" id="inspect-proc-manpower" value="${proc.manpower !== undefined ? proc.manpower : (proc.durationDays || 1)}" />
             </div>
           </div>
 
@@ -668,7 +695,7 @@ window.Zoosh.Views.Schedule = {
           </div>
         ` : `
           <div style="background: var(--bg-surface-secondary); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 12px; color: var(--text-muted);">
-            Duration: <strong>${proc.durationDays} days</strong> (${(parseFloat(proc.durationDays) || 1) * 8}h) &bull; Observer mode (read-only).
+            Status: <strong>${proc.status} (${proc.progressPercent || 0}%)</strong> &bull; Duration: <strong>${proc.durationDays} days</strong> &bull; Observer mode (read-only).
           </div>
         `}
 
@@ -706,15 +733,33 @@ window.Zoosh.Views.Schedule = {
 
     const duration = parseFloat(document.getElementById('inspect-proc-duration').value) || 1;
     const employeeId = document.getElementById('inspect-proc-employee').value;
+    const statusEl = document.getElementById('inspect-proc-status');
+    const progEl = document.getElementById('inspect-proc-progress');
+    const manEl = document.getElementById('inspect-proc-manpower');
 
-    window.Zoosh.State.updateProcess(procId, {
+    const updatePayload = {
       durationDays: duration,
       employeeId: employeeId
-    });
+    };
+
+    if (statusEl) {
+      updatePayload.status = statusEl.value;
+    }
+    if (progEl) {
+      let val = parseFloat(progEl.value) || 0;
+      if (updatePayload.status === 'COMPLETED') val = 100;
+      else if (updatePayload.status === 'PENDING') val = 0;
+      updatePayload.progressPercent = Math.max(0, Math.min(100, val));
+    }
+    if (manEl) {
+      updatePayload.manpower = parseFloat(manEl.value) || duration;
+    }
+
+    window.Zoosh.State.updateProcess(procId, updatePayload);
 
     window.Zoosh.Modal.close();
     if (window.Zoosh.App) {
-      window.Zoosh.App.showToast('Schedule recalculated and dependencies updated.');
+      window.Zoosh.App.showToast('Schedule & production progress recalculated.');
     }
   }
 };

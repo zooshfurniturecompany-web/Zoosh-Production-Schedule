@@ -114,6 +114,116 @@
   color: #059669;
 }
 
+/* Redesigned Overview Summary Cards Grid */
+.summary-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1280px) {
+  .summary-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .summary-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.summary-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.summary-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 10px;
+}
+
+.summary-card-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+
+.summary-card-count {
+  font-size: 22px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-main);
+  letter-spacing: -0.5px;
+}
+
+.summary-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex: 1;
+  overflow-y: auto;
+  max-height: 180px;
+}
+
+.summary-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.summary-card-row-label {
+  color: var(--text-main);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 12px;
+}
+
+.summary-card-row-value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.summary-card-row-link {
+  cursor: pointer;
+  padding: 3px 5px;
+  margin: -3px -5px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s;
+}
+
+.summary-card-row-link:hover {
+  background-color: var(--bg-hover);
+}
+
+.summary-card-row-link:hover .summary-card-row-label {
+  color: var(--accent-blue);
+}
+
 /* Alert Cards & Banners */
 .alerts-section {
   margin-bottom: 28px;
