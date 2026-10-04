@@ -64,6 +64,12 @@ window.Zoosh.ProcessFlowModal = {
     const defaultStartDate = proj.confirmedDate || config.CURRENT_DATE;
     const initialPreset = window.Zoosh.ProcessFlow.instantiatePreset('preset_8', defaultStartDate);
 
+    // Clear any previous container DOM so syncInputsFromDOM doesn't read old inputs
+    const container = document.getElementById('flow-drawer-container');
+    if (container) {
+      container.innerHTML = '';
+    }
+
     this.workingData = {
       itemName: '',
       qty: 1,
@@ -76,6 +82,11 @@ window.Zoosh.ProcessFlowModal = {
 
     this.isOpen = true;
     this.render();
+
+    setTimeout(() => {
+      const nameInput = document.getElementById('flow-input-item-name');
+      if (nameInput && typeof nameInput.focus === 'function') nameInput.focus();
+    }, 60);
   },
 
   /**
@@ -129,6 +140,12 @@ window.Zoosh.ProcessFlowModal = {
       };
     });
 
+    // Clear any previous container DOM so syncInputsFromDOM doesn't read old inputs
+    const editContainer = document.getElementById('flow-drawer-container');
+    if (editContainer) {
+      editContainer.innerHTML = '';
+    }
+
     this.workingData = {
       itemName: item.name || item.furnitureName || '',
       qty: item.qty || 1,
@@ -166,9 +183,64 @@ window.Zoosh.ProcessFlowModal = {
   },
 
   /**
+   * Escape HTML special characters for attributes and text
+   */
+  escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  },
+
+  /**
+   * Synchronize DOM input values into workingData before re-rendering or saving
+   */
+  syncInputsFromDOM() {
+    const nameEl = document.getElementById('flow-input-item-name');
+    const qtyEl = document.getElementById('flow-input-qty');
+    const dateEl = document.getElementById('flow-input-start-date');
+
+    if (nameEl && typeof nameEl.value === 'string' && nameEl.value.trim() !== '') {
+      this.workingData.itemName = nameEl.value;
+    }
+    if (qtyEl && qtyEl.value) {
+      const q = parseInt(qtyEl.value, 10);
+      if (q > 0) this.workingData.qty = q;
+    }
+    if (dateEl && dateEl.value) {
+      this.workingData.startDate = dateEl.value;
+    }
+
+    (this.workingData.nodes || []).forEach(n => {
+      const tempId = n.tempId || n.id;
+      const durEl = document.getElementById(`flow-duration-${tempId}`);
+      if (durEl && durEl.value) {
+        const val = parseFloat(durEl.value);
+        if (!isNaN(val)) n.durationDays = val;
+      }
+    });
+  },
+
+  /**
+   * Handle real-time input for Furniture Item Name
+   */
+  handleItemNameInput(val) {
+    this.workingData.itemName = val;
+    if (this.workingData.error && this.workingData.error.toLowerCase().includes('furniture item name')) {
+      this.workingData.error = null;
+      const banner = document.querySelector('.flow-error-banner');
+      if (banner) banner.remove();
+    }
+  },
+
+  /**
    * Select a Preset from Quick Flow Order
    */
   selectPreset(presetId) {
+    this.syncInputsFromDOM();
     const instantiated = window.Zoosh.ProcessFlow.instantiatePreset(presetId, this.workingData.startDate);
     this.workingData.presetId = presetId;
     this.workingData.source = 'PRESET';
@@ -181,6 +253,7 @@ window.Zoosh.ProcessFlowModal = {
    * Add Next Process to Lane 1 (Sequential)
    */
   addNextProcess(dept = 'Carpentry') {
+    this.syncInputsFromDOM();
     this.workingData.source = 'CUSTOM';
     this.workingData.presetId = null;
 
@@ -218,6 +291,7 @@ window.Zoosh.ProcessFlowModal = {
    * Add Parallel Process to Lane 2
    */
   addParallelProcess(dept = 'Upholstery') {
+    this.syncInputsFromDOM();
     this.workingData.source = 'CUSTOM';
     this.workingData.presetId = null;
 
@@ -255,6 +329,7 @@ window.Zoosh.ProcessFlowModal = {
    * Remove a node from the flow
    */
   removeNode(tempId) {
+    this.syncInputsFromDOM();
     if (this.workingData.nodes.length <= 1) {
       this.workingData.error = 'Flow must have at least one production process.';
       this.render();
@@ -293,6 +368,7 @@ window.Zoosh.ProcessFlowModal = {
    * Update employee of a node with leave conflict detection
    */
   updateEmployee(tempId, empId) {
+    this.syncInputsFromDOM();
     const node = this.workingData.nodes.find(n => (n.tempId || n.id) === tempId);
     if (!node) return;
 
@@ -307,6 +383,7 @@ window.Zoosh.ProcessFlowModal = {
    * Update department of a node
    */
   updateDepartment(tempId, dept) {
+    this.syncInputsFromDOM();
     const node = this.workingData.nodes.find(n => (n.tempId || n.id) === tempId);
     if (!node) return;
 
@@ -328,6 +405,7 @@ window.Zoosh.ProcessFlowModal = {
    * Toggle node lane between 1 and 2
    */
   updateLane(tempId, laneNum) {
+    this.syncInputsFromDOM();
     const node = this.workingData.nodes.find(n => (n.tempId || n.id) === tempId);
     if (!node) return;
 
@@ -346,20 +424,14 @@ window.Zoosh.ProcessFlowModal = {
    * Apply Flow: Validates and saves item & structured processes to state
    */
   applyFlow() {
-    // Read input values if entered in DOM
-    const nameEl = document.getElementById('flow-input-item-name');
-    const qtyEl = document.getElementById('flow-input-qty');
-    const dateEl = document.getElementById('flow-input-start-date');
+    this.syncInputsFromDOM();
 
-    if (nameEl && nameEl.value && nameEl.value.trim()) this.workingData.itemName = nameEl.value.trim();
-    if (qtyEl && qtyEl.value) this.workingData.qty = parseInt(qtyEl.value, 10) || 1;
-    if (dateEl && dateEl.value) this.workingData.startDate = dateEl.value;
-
-    if (!this.workingData.itemName) {
+    if (!this.workingData.itemName || !this.workingData.itemName.trim()) {
       this.workingData.error = 'Please enter a furniture item name.';
       this.render();
       return;
     }
+    this.workingData.itemName = this.workingData.itemName.trim();
 
     // Validate entire flow
     const validation = window.Zoosh.ProcessFlow.validate(this.workingData.nodes);
@@ -464,6 +536,11 @@ window.Zoosh.ProcessFlowModal = {
    * Render the complete right-side slide-over panel
    */
   render() {
+    this.syncInputsFromDOM();
+
+    // Preserve active element ID so focus isn't jarringly lost on live updates
+    const activeElId = (typeof document !== 'undefined' && document.activeElement) ? document.activeElement.id : null;
+
     let container = document.getElementById('flow-drawer-container');
     if (!container) {
       container = document.createElement('div');
@@ -520,8 +597,8 @@ window.Zoosh.ProcessFlowModal = {
                   id="flow-input-item-name" 
                   class="form-input" 
                   placeholder="e.g. 3 Seater Sofa, 8-Seater Dining Table" 
-                  value="${this.workingData.itemName}" 
-                  autofocus 
+                  value="${this.escapeHtml(this.workingData.itemName)}" 
+                  oninput="window.Zoosh.ProcessFlowModal.handleItemNameInput(this.value)" 
                 />
               </div>
               <div class="form-group" style="margin-bottom: 0;">
@@ -531,7 +608,8 @@ window.Zoosh.ProcessFlowModal = {
                   id="flow-input-qty" 
                   class="form-input" 
                   min="1" 
-                  value="${this.workingData.qty}" 
+                  value="${this.workingData.qty || 1}" 
+                  oninput="window.Zoosh.ProcessFlowModal.workingData.qty = parseInt(this.value, 10) || 1" 
                 />
               </div>
               <div class="form-group" style="margin-bottom: 0;">
@@ -540,7 +618,9 @@ window.Zoosh.ProcessFlowModal = {
                   type="date" 
                   id="flow-input-start-date" 
                   class="form-input" 
-                  value="${this.workingData.startDate}" 
+                  value="${this.workingData.startDate || ''}" 
+                  onchange="window.Zoosh.ProcessFlowModal.workingData.startDate = this.value" 
+                  oninput="window.Zoosh.ProcessFlowModal.workingData.startDate = this.value" 
                 />
               </div>
             </div>
@@ -697,6 +777,7 @@ window.Zoosh.ProcessFlowModal = {
                         <td style="font-weight: 700; color: var(--text-muted);">${idx + 1}</td>
                         <td>
                           <select 
+                            id="flow-select-lane-${tempId}"
                             class="form-input form-input-sm" 
                             style="padding: 2px 6px; font-size: 11.5px;"
                             onchange="window.Zoosh.ProcessFlowModal.updateLane('${tempId}', this.value)"
@@ -707,6 +788,7 @@ window.Zoosh.ProcessFlowModal = {
                         </td>
                         <td>
                           <select 
+                            id="flow-select-dept-${tempId}"
                             class="form-input form-input-sm" 
                             style="padding: 2px 6px; font-size: 11.5px; font-weight: 700;"
                             onchange="window.Zoosh.ProcessFlowModal.updateDepartment('${tempId}', this.value)"
@@ -719,6 +801,7 @@ window.Zoosh.ProcessFlowModal = {
                         <td>
                           <div style="display: flex; flex-direction: column; gap: 2px;">
                             <select 
+                              id="flow-select-emp-${tempId}"
                               class="form-input form-input-sm" 
                               style="padding: 2px 6px; font-size: 11.5px;"
                               onchange="window.Zoosh.ProcessFlowModal.updateEmployee('${tempId}', this.value)"
@@ -739,6 +822,7 @@ window.Zoosh.ProcessFlowModal = {
                         <td>
                           <input 
                             type="number" 
+                            id="flow-duration-${tempId}"
                             class="form-input form-input-sm" 
                             step="0.25" 
                             min="0.25" 
@@ -783,6 +867,16 @@ window.Zoosh.ProcessFlowModal = {
         </div>
       </div>
     `;
+
+    // Restore focus if element was active prior to re-render
+    if (activeElId && typeof document !== 'undefined') {
+      const activeEl = document.getElementById(activeElId);
+      if (activeEl && typeof activeEl.focus === 'function') {
+        try {
+          activeEl.focus();
+        } catch (e) {}
+      }
+    }
   }
 };
 
