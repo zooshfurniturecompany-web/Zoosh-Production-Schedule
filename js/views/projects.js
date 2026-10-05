@@ -158,7 +158,7 @@ window.Zoosh.Views.Projects = {
   renderProjectCard(project, clientsMap) {
     const calendar = window.Zoosh.Calendar;
     const client = clientsMap.get(project.clientId);
-    const clientSrl = client ? client.srl : (project.clientSrl || '—');
+    const clientCode = client ? (client.code || client.clientCode || client.srl) : (project.clientCode || project.clientSrl || '—');
     const clientName = client ? client.name : (project.clientName || 'Client');
 
     let badgeClass = 'badge-on-schedule';
@@ -183,8 +183,8 @@ window.Zoosh.Views.Projects = {
           <div>
             <div style="font-weight: 800; font-size: 16px; color: var(--text-main);">${project.name}</div>
             <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
-              <span class="badge badge-primary" style="font-size: 11px; padding: 2px 7px;">
-                SRL ${clientSrl}
+              <span class="badge badge-primary" style="font-size: 11px; padding: 2px 7px; font-family: var(--font-mono); font-weight: 700;">
+                ${clientCode}
               </span>
               <span style="font-size: 12.5px; color: var(--text-muted);">
                 ${clientName} &bull; ${project.location}
@@ -225,7 +225,7 @@ window.Zoosh.Views.Projects = {
   renderMobileProjectCard(project, clientsMap) {
     const calendar = window.Zoosh.Calendar;
     const client = clientsMap.get(project.clientId);
-    const clientSrl = client ? client.srl : (project.clientSrl || '—');
+    const clientCode = client ? (client.code || client.clientCode || client.srl) : (project.clientCode || project.clientSrl || '—');
     const clientName = client ? client.name : (project.clientName || 'Client');
 
     let badgeClass = 'badge-on-schedule';
@@ -250,7 +250,7 @@ window.Zoosh.Views.Projects = {
           <div>
             <div style="font-weight: 800; font-size: 15px; color: var(--text-main);">${project.name}</div>
             <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-              <strong style="color: var(--primary-color);">SRL ${clientSrl}</strong> &bull; ${clientName} &bull; ${project.location}
+              <strong style="color: var(--primary-color); font-family: var(--font-mono);">${clientCode}</strong> &bull; ${clientName} &bull; ${project.location}
             </div>
           </div>
           <span class="badge ${badgeClass}" style="font-size: 10px;">${statusLabel}</span>
@@ -304,7 +304,7 @@ window.Zoosh.Views.Projects = {
     return `
       <div class="card-panel">
         <div class="card-panel-header">
-          <div class="card-panel-title">Client Directory &bull; Customer SRL Identifiers</div>
+          <div class="card-panel-title">Client Directory &bull; Customer Short Codes</div>
           ${canEdit ? `
             <button class="btn btn-primary btn-sm" onclick="window.Zoosh.Views.Projects.openAddModal()">
               + New Project
@@ -316,7 +316,7 @@ window.Zoosh.Views.Projects = {
             <table class="data-table">
               <thead>
                 <tr>
-                  <th style="width: 110px;">Client SRL</th>
+                  <th style="width: 110px;">Client Code</th>
                   <th>Client / Customer</th>
                   <th>Location</th>
                   <th>Contact</th>
@@ -332,7 +332,7 @@ window.Zoosh.Views.Projects = {
                     <tr>
                       <td>
                         <span class="badge badge-primary" style="font-size: 13px; padding: 4px 10px; font-family: var(--font-mono); font-weight: 700;">
-                          SRL ${c.srl}
+                          ${c.code || c.clientCode || (c.srl ? 'SRL ' + c.srl : '—')}
                         </span>
                       </td>
                       <td style="font-weight: 700; color: var(--text-main); font-size: 14px;">
@@ -405,7 +405,8 @@ window.Zoosh.Views.Projects = {
     }
 
     const client = (state.clients || []).find(c => c.id === project.clientId);
-    const clientSrl = client ? client.srl : (project.clientSrl || '—');
+    const clientCode = client ? (client.code || client.clientCode || client.srl) : (project.clientCode || project.clientSrl || '—');
+    const clientSrl = clientCode;
     const clientName = client ? client.name : (project.clientName || 'Client');
 
     if (window.Zoosh.App) {
@@ -446,8 +447,8 @@ window.Zoosh.Views.Projects = {
           <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
             <div>
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                <span class="badge badge-primary" style="font-size: 12px; padding: 3px 8px; font-weight: 700;">
-                  SRL ${clientSrl}
+                <span class="badge badge-primary" style="font-size: 12px; padding: 3px 8px; font-weight: 700; font-family: var(--font-mono);">
+                  ${clientCode}
                 </span>
                 <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted);">
                   Project Specifications
@@ -575,8 +576,8 @@ window.Zoosh.Views.Projects = {
                       <tr>
                         <td style="font-weight: 700; color: var(--text-muted);">${idx + 1}</td>
                         <td>
-                          <span class="badge badge-primary" style="font-size: 11px; padding: 2px 7px;">
-                            SRL ${clientSrl}
+                          <span class="badge badge-primary" style="font-size: 11px; padding: 2px 7px; font-family: var(--font-mono); font-weight: 700;">
+                            ${item.productCode || item.itemCode || (clientCode ? `${clientCode} ${100 + (idx + 1)}` : '—')}
                           </span>
                         </td>
                         <td style="font-weight: 700; color: var(--text-main); font-size: 13.5px;">
@@ -630,7 +631,7 @@ window.Zoosh.Views.Projects = {
                   const itemProcs = (state.processes || []).filter(p => (p.furnitureId || p.srlId) === item.id);
                   itemProcs.sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
                   const { criticalDuration } = window.Zoosh.ProcessFlow 
-                    ? window.Zoosh.ProcessFlow.calculateDurations(itemProcs) 
+                     ? window.Zoosh.ProcessFlow.calculateDurations(itemProcs) 
                     : { criticalDuration: 0 };
 
                   return `
@@ -638,7 +639,7 @@ window.Zoosh.Views.Projects = {
                       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
                           <span class="badge badge-primary" style="font-size: 12px; font-weight: 700; font-family: var(--font-mono);">
-                            SRL ${clientSrl}
+                            ${item.productCode || item.itemCode || (clientCode ? `${clientCode} 101` : '—')}
                           </span>
                           <strong style="font-size: 14px; color: var(--text-main);">${item.name || item.furnitureName}</strong>
                         </div>
@@ -740,7 +741,8 @@ window.Zoosh.Views.Projects = {
 
     const project = (state.projects || []).find(p => p.id === item.projectId);
     const client = project ? (state.clients || []).find(c => c.id === project.clientId) : null;
-    const clientSrl = client ? client.srl : (project ? project.clientSrl : '—');
+    const clientCode = client ? (client.code || client.clientCode || client.srl) : (project ? (project.clientCode || project.clientSrl) : '—');
+    const clientSrl = clientCode;
     const clientName = client ? client.name : (project ? project.clientName : 'Client');
 
     const itemProcs = (state.processes || []).filter(p => (p.furnitureId || p.srlId) === furnitureId);
@@ -766,11 +768,11 @@ window.Zoosh.Views.Projects = {
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
             <div>
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span class="badge badge-primary" style="font-size: 11px; padding: 2px 7px;">
-                  Client: ${clientName} (SRL ${clientSrl})
+                <span class="badge badge-primary" style="font-size: 11px; padding: 2px 7px; font-family: var(--font-mono); font-weight: 700;">
+                  ${item.productCode || item.itemCode || 'Product'}
                 </span>
                 <span style="font-size: 12px; color: var(--text-muted);">
-                  Project: <strong>${project ? project.name : '—'}</strong>
+                  Client: <strong>${clientName} (${clientCode})</strong> &bull; Project: <strong>${project ? project.name : '—'}</strong>
                 </span>
               </div>
               <h2 style="font-size: 20px; font-weight: 800; color: var(--text-main); margin-top: 8px;">
@@ -914,6 +916,17 @@ window.Zoosh.Views.Projects = {
   handleClientNameInput(val) {
     const projNameInput = document.getElementById('new-proj-name');
     const locInput = document.getElementById('new-client-location');
+    const codeInput = document.getElementById('new-client-code');
+    const codeBadge = document.getElementById('new-client-code-badge');
+
+    if (codeInput && !codeInput.dataset.userEdited) {
+      const generated = window.Zoosh.State.generateClientCode ? window.Zoosh.State.generateClientCode(val) : '';
+      codeInput.value = generated;
+      if (codeBadge) {
+        codeBadge.textContent = generated ? `Client Code: ${generated}` : 'Client Code: —';
+      }
+    }
+
     if (projNameInput && !projNameInput.dataset.userEdited) {
       const loc = locInput ? locInput.value.trim() : '';
       projNameInput.value = val ? (loc ? `${val.trim()} - ${loc}` : `${val.trim()} Project`) : '';
@@ -945,7 +958,6 @@ window.Zoosh.Views.Projects = {
     const state = window.Zoosh.State.getState();
     const config = window.Zoosh.Config;
     const clients = state.clients || [];
-    const nextSrl = window.Zoosh.State.getNextClientSrl ? window.Zoosh.State.getNextClientSrl() : 101;
 
     // Determine initial client mode: If preselectedClientId was provided and valid, use EXISTING; otherwise default to NEW
     const initialMode = (preselectedClientId && clients.some(c => c.id === preselectedClientId)) 
@@ -985,7 +997,7 @@ window.Zoosh.Views.Projects = {
         <div id="new-client-fields-section" style="display: ${initialMode === 'NEW' ? 'block' : 'none'}; background: #f8fafc; border: 1px solid var(--border-light); border-radius: 8px; padding: 12px 14px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <strong style="font-size: 12px; color: var(--text-main); text-transform: uppercase; letter-spacing: 0.5px;">Client / Customer Info</strong>
-            <span class="badge badge-primary" style="font-size: 11px;">Auto SRL ${nextSrl}</span>
+            <span class="badge badge-primary" id="new-client-code-badge" style="font-size: 11px; font-family: var(--font-mono); font-weight: 700;">Client Code: —</span>
           </div>
 
           <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px;">
@@ -995,19 +1007,20 @@ window.Zoosh.Views.Projects = {
                 type="text" 
                 id="new-client-name" 
                 class="form-input" 
-                placeholder="e.g. Swalih, Dr. Nambiar" 
+                placeholder="e.g. Ganeshan, Sreelal, Swalih" 
                 oninput="window.Zoosh.Views.Projects.handleClientNameInput(this.value)" 
                 autofocus 
               />
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label" style="font-size: 11.5px;">Client SRL #</label>
+              <label class="form-label" style="font-size: 11.5px;">Client Short Code</label>
               <input 
-                type="number" 
-                id="new-client-srl" 
+                type="text" 
+                id="new-client-code" 
                 class="form-input" 
-                value="${nextSrl}" 
-                style="font-family: var(--font-mono); font-weight: 700;" 
+                placeholder="e.g. GNS" 
+                style="font-family: var(--font-mono); font-weight: 700; text-transform: uppercase;" 
+                oninput="this.dataset.userEdited = 'true'; const b = document.getElementById('new-client-code-badge'); if(b) b.textContent = this.value ? 'Client Code: ' + this.value.toUpperCase() : 'Client Code: —';"
               />
             </div>
           </div>
@@ -1038,15 +1051,15 @@ window.Zoosh.Views.Projects = {
         <!-- Section B: Existing Client Selection -->
         <div id="existing-client-fields-section" style="display: ${initialMode === 'EXISTING' ? 'block' : 'none'};">
           <div class="form-group">
-            <label class="form-label">Select Client / Customer (SRL)</label>
+            <label class="form-label">Select Client / Customer</label>
             <select id="new-proj-client-id" class="form-input">
               ${clients.map(c => `
                 <option value="${c.id}" ${c.id === preselectedClientId ? 'selected' : ''}>
-                  SRL ${c.srl} — ${c.name} (${c.location || 'Site'})
+                  ${c.code || c.clientCode || (c.srl ? 'SRL ' + c.srl : '')} — ${c.name} (${c.location || 'Site'})
                 </option>
               `).join('')}
             </select>
-            <div class="form-help-text">Project will be associated under this Client's SRL identifier.</div>
+            <div class="form-help-text">Project will be associated under this Client.</div>
           </div>
         </div>
 
@@ -1136,7 +1149,7 @@ window.Zoosh.Views.Projects = {
 
     if (isNewClient) {
       const clientName = (document.getElementById('new-client-name')?.value || '').trim();
-      const srlVal = document.getElementById('new-client-srl')?.value;
+      const codeInput = (document.getElementById('new-client-code')?.value || '').trim().toUpperCase();
       const clientLoc = (document.getElementById('new-client-location')?.value || '').trim();
       const clientPhone = (document.getElementById('new-client-phone')?.value || '').trim();
 
@@ -1144,6 +1157,8 @@ window.Zoosh.Views.Projects = {
         showError('Please provide a Client / Customer Name.');
         return;
       }
+
+      const clientCode = codeInput || (window.Zoosh.State.generateClientCode ? window.Zoosh.State.generateClientCode(clientName) : 'CLI');
 
       if (!projName) {
         projName = clientLoc ? `${clientName} - ${clientLoc}` : `${clientName} Project`;
@@ -1153,10 +1168,11 @@ window.Zoosh.Views.Projects = {
       }
 
       try {
-        const nextSrl = window.Zoosh.State.getNextClientSrl();
-        const srlNum = srlVal ? Number(srlVal) : nextSrl;
+        const nextSrl = window.Zoosh.State.getNextClientSrl ? window.Zoosh.State.getNextClientSrl() : 101;
         const newClient = window.Zoosh.State.addClient({
-          srl: srlNum,
+          srl: nextSrl,
+          code: clientCode,
+          clientCode: clientCode,
           name: clientName,
           location: clientLoc,
           phone: clientPhone,
@@ -1273,11 +1289,13 @@ window.Zoosh.Views.Projects = {
     const client = (state.clients || []).find(c => c.id === clientId);
     if (!client) return;
 
+    const clientCode = client.code || client.clientCode || (client.srl ? `SRL ${client.srl}` : '');
+
     const bodyHtml = `
       <div id="edit-client-error" style="display: none; padding: 8px 12px; border-radius: 6px; background: #fef2f2; color: #991b1b; font-size: 12.5px; margin-bottom: 12px;"></div>
       <div class="form-group" style="margin-bottom: 12px;">
-        <label class="form-label">Client SRL Number</label>
-        <input type="number" id="edit-client-srl" class="form-input" value="${client.srl}" />
+        <label class="form-label">Client Short Code</label>
+        <input type="text" id="edit-client-code" class="form-input" value="${client.code || client.clientCode || client.srl || ''}" style="font-family: var(--font-mono); font-weight: 700; text-transform: uppercase;" />
       </div>
       <div class="form-group" style="margin-bottom: 12px;">
         <label class="form-label">Client Name</label>
@@ -1302,11 +1320,11 @@ window.Zoosh.Views.Projects = {
       <button class="btn btn-primary" onclick="window.Zoosh.Views.Projects.submitEditClient('${client.id}')">Save Client</button>
     `;
 
-    window.Zoosh.Modal.open(`Edit Client: SRL ${client.srl}`, bodyHtml, footerHtml, '480px');
+    window.Zoosh.Modal.open(`Edit Client: ${client.name} (${clientCode})`, bodyHtml, footerHtml, '480px');
   },
 
   submitEditClient(clientId) {
-    const srl = document.getElementById('edit-client-srl').value;
+    const code = document.getElementById('edit-client-code').value.trim().toUpperCase();
     const name = document.getElementById('edit-client-name').value.trim();
     const location = document.getElementById('edit-client-location').value.trim();
     const phone = document.getElementById('edit-client-phone').value.trim();
@@ -1320,7 +1338,7 @@ window.Zoosh.Views.Projects = {
 
     try {
       window.Zoosh.State.updateClient(clientId, {
-        srl: Number(srl), name, location, phone, notes
+        code, clientCode: code, name, location, phone, notes
       });
       window.Zoosh.Modal.close();
       this.render(document.getElementById('view-container'));

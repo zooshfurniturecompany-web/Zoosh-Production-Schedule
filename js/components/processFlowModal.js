@@ -52,12 +52,15 @@ window.Zoosh.ProcessFlowModal = {
     const targetProjId = projectId || (projects[0] ? projects[0].id : null);
     const proj = projects.find(p => p.id === targetProjId) || projects[0];
     const client = (state.clients || []).find(c => c.id === proj.clientId);
+    const clientCode = client ? (client.code || client.clientCode || client.srl) : (proj.clientCode || proj.clientSrl || '—');
+    const nextProductCode = window.Zoosh.State.getNextProductCode ? window.Zoosh.State.getNextProductCode(proj.id) : '';
 
     this.mode = 'ADD';
     this.projectId = proj.id;
     this.furnitureId = null;
     this.projectName = proj.name;
-    this.clientSrl = client ? client.srl : (proj.clientSrl || '—');
+    this.clientCode = clientCode;
+    this.clientSrl = clientCode;
     this.clientName = client ? client.name : (proj.clientName || 'Client');
 
     // Fresh, completely independent working context
@@ -71,6 +74,7 @@ window.Zoosh.ProcessFlowModal = {
     }
 
     this.workingData = {
+      productCode: nextProductCode,
       itemName: '',
       qty: 1,
       startDate: defaultStartDate,
@@ -107,13 +111,15 @@ window.Zoosh.ProcessFlowModal = {
 
     const proj = (state.projects || []).find(p => p.id === item.projectId);
     const client = proj ? (state.clients || []).find(c => c.id === proj.clientId) : null;
+    const clientCode = client ? (client.code || client.clientCode || client.srl) : (proj ? (proj.clientCode || proj.clientSrl) : '—');
     const employeesMap = new Map((state.employees || []).map(e => [e.id, e]));
 
     this.mode = 'EDIT';
     this.projectId = item.projectId;
     this.furnitureId = item.id;
     this.projectName = proj ? proj.name : '—';
-    this.clientSrl = client ? client.srl : (proj ? proj.clientSrl : '—');
+    this.clientCode = clientCode;
+    this.clientSrl = clientCode;
     this.clientName = client ? client.name : (proj ? proj.clientName : 'Client');
 
     // Load saved processes into temporary nodes
@@ -147,6 +153,7 @@ window.Zoosh.ProcessFlowModal = {
     }
 
     this.workingData = {
+      productCode: item.productCode || item.itemCode || '',
       itemName: item.name || item.furnitureName || '',
       qty: item.qty || 1,
       startDate: item.startDate || (proj ? proj.confirmedDate : window.Zoosh.Config.CURRENT_DATE),
@@ -166,6 +173,7 @@ window.Zoosh.ProcessFlowModal = {
   close() {
     this.isOpen = false;
     this.workingData = {
+      productCode: '',
       itemName: '',
       qty: 1,
       startDate: '',
@@ -199,10 +207,14 @@ window.Zoosh.ProcessFlowModal = {
    * Synchronize DOM input values into workingData before re-rendering or saving
    */
   syncInputsFromDOM() {
+    const codeEl = document.getElementById('flow-input-product-code');
     const nameEl = document.getElementById('flow-input-item-name');
     const qtyEl = document.getElementById('flow-input-qty');
     const dateEl = document.getElementById('flow-input-start-date');
 
+    if (codeEl && typeof codeEl.value === 'string' && codeEl.value.trim() !== '') {
+      this.workingData.productCode = codeEl.value.trim().toUpperCase();
+    }
     if (nameEl && typeof nameEl.value === 'string' && nameEl.value.trim() !== '') {
       this.workingData.itemName = nameEl.value;
     }
@@ -466,6 +478,7 @@ window.Zoosh.ProcessFlowModal = {
         window.Zoosh.State.addFurniture(
           {
             projectId: this.projectId,
+            productCode: this.workingData.productCode,
             name: this.workingData.itemName,
             qty: this.workingData.qty,
             startDate: this.workingData.startDate,
@@ -479,6 +492,7 @@ window.Zoosh.ProcessFlowModal = {
         window.Zoosh.State.updateFurnitureFlow(
           this.furnitureId,
           {
+            productCode: this.workingData.productCode,
             name: this.workingData.itemName,
             qty: this.workingData.qty,
             startDate: this.workingData.startDate,
@@ -568,7 +582,7 @@ window.Zoosh.ProcessFlowModal = {
         <div class="flow-drawer-header">
           <div>
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-              <span class="badge badge-primary" style="font-size: 11px; padding: 2px 7px;">SRL ${this.clientSrl}</span>
+              <span class="badge badge-primary" style="font-size: 11px; padding: 2px 7px; font-family: var(--font-mono); font-weight: 700;">${this.escapeHtml(this.workingData.productCode || this.clientCode || 'Product')}</span>
               <span style="font-size: 12px; color: var(--text-muted);">${this.clientName} &bull; ${this.projectName}</span>
             </div>
             <h3 style="font-size: 18px; font-weight: 800; color: var(--text-main); margin: 0;">
@@ -589,7 +603,19 @@ window.Zoosh.ProcessFlowModal = {
 
           <!-- Furniture Item Basic Inputs -->
           <div style="background: #f8fafc; border: 1px solid var(--border-light); border-radius: 8px; padding: 14px; margin-bottom: 18px;">
-            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; align-items: flex-end;">
+            <div style="display: grid; grid-template-columns: 1.2fr 2fr 1fr 1fr; gap: 12px; align-items: flex-end;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" style="font-size: 11.5px;">Product Code</label>
+                <input 
+                  type="text" 
+                  id="flow-input-product-code" 
+                  class="form-input" 
+                  style="font-family: var(--font-mono); font-weight: 700; text-transform: uppercase;"
+                  placeholder="e.g. GNS 101" 
+                  value="${this.escapeHtml(this.workingData.productCode || '')}" 
+                  oninput="window.Zoosh.ProcessFlowModal.workingData.productCode = this.value" 
+                />
+              </div>
               <div class="form-group" style="margin-bottom: 0;">
                 <label class="form-label" style="font-size: 11.5px;">Furniture Item Name</label>
                 <input 

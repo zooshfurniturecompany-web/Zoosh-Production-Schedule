@@ -221,10 +221,12 @@ window.Zoosh.DemoData = {
       }
     ];
 
-    // 3. Clients (SRL belongs to Client)
+    // 3. Clients (Client short code e.g. SRL for Sreelal, RJB for Rajeev Babu)
     const clients = [
       {
         id: 'client_sreelal',
+        code: 'SRL',
+        clientCode: 'SRL',
         srl: 101,
         name: 'Sreelal',
         location: 'Calicut',
@@ -233,6 +235,8 @@ window.Zoosh.DemoData = {
       },
       {
         id: 'client_rajeev',
+        code: 'RJB',
+        clientCode: 'RJB',
         srl: 102,
         name: 'Rajeev Babu',
         location: 'Bangalore',
@@ -241,6 +245,8 @@ window.Zoosh.DemoData = {
       },
       {
         id: 'client_swalih',
+        code: 'SWL',
+        clientCode: 'SWL',
         srl: 103,
         name: 'Swalih',
         location: 'Pattambi',
@@ -249,6 +255,8 @@ window.Zoosh.DemoData = {
       },
       {
         id: 'client_pranav',
+        code: 'PRN',
+        clientCode: 'PRN',
         srl: 104,
         name: 'Pranav',
         location: 'Kunnamkulam',
@@ -317,11 +325,13 @@ window.Zoosh.DemoData = {
       }
     ];
 
-    // 5. Furniture Items (Belong to Project. NO SRL number property!)
+    // 5. Furniture Items (Belong to Project. Each item has its unique Product Code in series)
     const furniture = [
       {
         id: 'furn_101',
         projectId: 'proj_sreelal',
+        productCode: 'SRL 101',
+        itemCode: 'SRL 101',
         name: 'Dining Table & Chairs Suite',
         furnitureName: 'Dining Table & Chairs Suite',
         flowTypeId: 'flow_type_2',
@@ -332,6 +342,8 @@ window.Zoosh.DemoData = {
       {
         id: 'furn_102',
         projectId: 'proj_rajeev',
+        productCode: 'RJB 101',
+        itemCode: 'RJB 101',
         name: 'L-Shape Sectional Sofa',
         furnitureName: 'L-Shape Sectional Sofa',
         flowTypeId: 'flow_type_2',
@@ -342,6 +354,8 @@ window.Zoosh.DemoData = {
       {
         id: 'furn_103',
         projectId: 'proj_swalih',
+        productCode: 'SWL 101',
+        itemCode: 'SWL 101',
         name: 'Master Suite Teak Wardrobe',
         furnitureName: 'Master Suite Teak Wardrobe',
         flowTypeId: 'flow_type_1',
@@ -352,6 +366,8 @@ window.Zoosh.DemoData = {
       {
         id: 'furn_104',
         projectId: 'proj_pranav',
+        productCode: 'PRN 101',
+        itemCode: 'PRN 101',
         name: 'Executive Walnut Desk',
         furnitureName: 'Executive Walnut Desk',
         flowTypeId: 'flow_type_1',

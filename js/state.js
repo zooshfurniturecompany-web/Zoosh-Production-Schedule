@@ -193,20 +193,80 @@ window.Zoosh.State = {
     return max + 1;
   },
 
+  /**
+   * Auto-generate 3-letter client short code from Client Name
+   * e.g. "Ganeshan" -> "GNS", "Sreelal" -> "SRL", "Rajeev Babu" -> "RJB"
+   */
+  generateClientCode(name) {
+    if (!name || typeof name !== 'string') return 'PRD';
+    const clean = name.trim().toUpperCase();
+    if (!clean) return 'PRD';
+
+    const words = clean.split(/[\s\-_]+/).filter(Boolean);
+    if (words.length >= 3) {
+      return (words[0][0] + words[1][0] + words[2][0]).toUpperCase();
+    }
+    if (words.length === 2) {
+      const w1 = words[0];
+      const w2 = words[1];
+      const w1Cons = w1.slice(1).replace(/[AEIOU]/g, '');
+      const mid = w1Cons[0] || w1[1] || '';
+      return (w1[0] + mid + w2[0]).substring(0, 3).toUpperCase();
+    }
+
+    const word = words[0];
+    const consonants = word.split('').filter((ch, idx) => idx === 0 || !'AEIOU'.includes(ch));
+    if (consonants.length >= 3) {
+      return (consonants[0] + consonants[1] + consonants[2]).toUpperCase();
+    }
+    return word.replace(/[^A-Z0-9]/g, '').substring(0, 3).padEnd(3, 'X').toUpperCase();
+  },
+
+  /**
+   * Get next sequential product code for furniture items under a project
+   * e.g. under Sreelal (SRL) -> "SRL 101", "SRL 102"; under Ganeshan (GNS) -> "GNS 101"
+   */
+  getNextProductCode(projectId) {
+    const proj = (this._state.projects || []).find(p => p.id === projectId);
+    let clientCode = 'PRD';
+    if (proj) {
+      const client = (this._state.clients || []).find(c => c.id === proj.clientId);
+      if (client && (client.code || client.clientCode)) {
+        clientCode = client.code || client.clientCode;
+      } else if (client && client.name) {
+        clientCode = this.generateClientCode(client.name);
+      } else if (proj.clientCode) {
+        clientCode = proj.clientCode;
+      } else if (proj.name) {
+        clientCode = this.generateClientCode(proj.name);
+      }
+    }
+
+    const items = (this._state.furniture || []).filter(f => f.projectId === projectId);
+    const existingNums = items.map(item => {
+      const c = item.productCode || item.itemCode || '';
+      const match = c.match(/(\d+)/);
+      return match ? parseInt(match[1], 10) : 0;
+    }).filter(n => n >= 100);
+
+    const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 101;
+    return `${clientCode} ${nextNum}`;
+  },
+
   addClient(clientData) {
     this._checkPermission('create');
 
-    const srl = Number(clientData.srl) || this.getNextClientSrl();
-    const existing = this.getClientBySrl(srl);
-    if (existing) {
-      throw new Error(`A client with SRL ${srl} already exists (${existing.name}). Please use a unique SRL number.`);
-    }
+    const name = (clientData.name || 'New Client').trim();
+    const code = (clientData.code || clientData.clientCode || this.generateClientCode(name)).trim().toUpperCase();
+    const srl = clientData.srl !== undefined ? clientData.srl : this.getNextClientSrl();
 
-    const id = 'client_' + (clientData.name ? clientData.name.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'client') + '_' + Date.now().toString(36);
+    const id = 'client_' + (name ? name.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'client') + '_' + Date.now().toString(36);
     const newClient = {
       id: id,
+      code: code,
+      clientCode: code,
       srl: srl,
-      name: (clientData.name || 'New Client').trim(),
+      name: name,
       location: (clientData.location || '').trim(),
       phone: (clientData.phone || '').trim(),
       notes: (clientData.notes || '').trim(),
@@ -416,9 +476,13 @@ window.Zoosh.State = {
       };
     });
 
+    const productCode = (furnitureData.productCode || furnitureData.itemCode || this.getNextProductCode(furnitureData.projectId)).trim();
+
     const newFurniture = {
       id: furnId,
       projectId: furnitureData.projectId,
+      productCode: productCode,
+      itemCode: productCode,
       name: furnitureName,
       furnitureName: furnitureName, // backward compatibility alias
       flowTypeId: furnitureData.flowTypeId || null,
@@ -460,6 +524,10 @@ window.Zoosh.State = {
     if (furnitureData.name) {
       item.name = furnitureData.name.trim();
       item.furnitureName = item.name;
+    }
+    if (furnitureData.productCode) {
+      item.productCode = furnitureData.productCode.trim();
+      item.itemCode = item.productCode;
     }
     if (furnitureData.qty !== undefined) {
       item.qty = parseInt(furnitureData.qty, 10) || 1;
