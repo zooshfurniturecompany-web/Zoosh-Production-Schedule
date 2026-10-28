@@ -263,11 +263,10 @@ window.Zoosh.Views.Schedule = {
 
     const state = window.Zoosh.State.getState();
     const config = window.Zoosh.Config;
-    const dayWidth = this.zoomMode === 'week' ? 120 : 56;
-    const totalWidth = days.length * dayWidth;
+    const numDays = days.length;
 
-    const todayIndex = days.findIndex(d => d.dateStr === config.CURRENT_DATE);
-    const todayLeftPx = todayIndex !== -1 ? todayIndex * dayWidth + (dayWidth / 2) : -100;
+    const todayIndex = days.findIndex(d => d.dateStr === (this.centerDateStr || config.CURRENT_DATE));
+    const todayLeftPct = todayIndex !== -1 ? ((todayIndex + 0.5) / numDays) * 100 : -100;
 
     const rows = this.getGanttRows(state);
 
@@ -277,22 +276,22 @@ window.Zoosh.Views.Schedule = {
           👈 Swipe horizontally to navigate full factory Gantt timeline 👉
         </div>
       ` : ''}
-      <div style="min-width: ${220 + totalWidth}px; position: relative;">
+      <div style="width: 100%; position: relative;">
         <!-- Header -->
         <div class="gantt-header-row">
           <div class="gantt-label-col-header">
             ${this.viewMode === 'people' ? 'Craftsperson' : (this.viewMode === 'department' ? 'Department' : 'Project / SRL')}
           </div>
-          <div class="gantt-timeline-header" style="width: ${totalWidth}px;">
+          <div class="gantt-timeline-header">
             ${days.map(d => `
-              <div class="gantt-day-col ${d.isSunday ? 'sunday' : ''} ${d.isToday ? 'today' : ''}" style="width: ${dayWidth}px; min-width: ${dayWidth}px;">
-                <div class="day-col-weekday">${d.weekday}</div>
+              <div class="gantt-day-col ${d.isSunday ? 'sunday' : ''} ${d.isToday ? 'today' : ''}" title="${d.weekday}, ${d.dayNumber}">
+                <div class="day-col-weekday">${d.weekday.substring(0, 2)}</div>
                 <div class="day-col-number">${d.dayNumber}</div>
               </div>
             `).join('')}
 
             ${todayIndex !== -1 ? `
-              <div class="gantt-today-line" id="gantt-today-line-el" style="left: ${todayLeftPx}px;">
+              <div class="gantt-today-line" id="gantt-today-line-el" style="left: ${todayLeftPct}%;">
                 <div class="gantt-today-pin">TODAY</div>
               </div>
             ` : ''}
@@ -301,7 +300,7 @@ window.Zoosh.Views.Schedule = {
 
         <!-- Rows -->
         <div style="position: relative;">
-          ${rows.map(row => this.renderGanttRow(row, days, dayWidth, totalWidth)).join('')}
+          ${rows.map(row => this.renderGanttRow(row, days, numDays)).join('')}
         </div>
       </div>
     `;
@@ -529,7 +528,7 @@ window.Zoosh.Views.Schedule = {
     return [];
   },
 
-  renderGanttRow(row, days, dayWidth, totalWidth) {
+  renderGanttRow(row, days, numDays) {
     const calendar = window.Zoosh.Calendar;
     const state = window.Zoosh.State.getState();
     const srlsMap = new Map((state.furniture || state.srls || []).map(s => [s.id, s]));
@@ -549,9 +548,9 @@ window.Zoosh.Views.Schedule = {
           </div>
         </div>
 
-        <div class="gantt-row-track" style="width: ${totalWidth}px;">
+        <div class="gantt-row-track">
           ${days.map(d => `
-            <div class="gantt-cell-bg ${d.isSunday ? 'sunday' : ''} ${d.isToday ? 'today' : ''}" style="width: ${dayWidth}px; min-width: ${dayWidth}px;"></div>
+            <div class="gantt-cell-bg ${d.isSunday ? 'sunday' : ''} ${d.isToday ? 'today' : ''}"></div>
           `).join('')}
 
           ${row.processes.map(proc => {
@@ -567,28 +566,38 @@ window.Zoosh.Views.Schedule = {
               return '';
             }
 
-            const startDayIndex = days.findIndex(d => d.dateStr === proc.calculatedStartDate);
-            let leftPx = 0;
-            if (startDayIndex !== -1) {
-              leftPx = startDayIndex * dayWidth;
-            } else {
-              const diff = calendar.diffCalendarDays(firstDateStr, proc.calculatedStartDate);
-              leftPx = diff * dayWidth;
+            let sIdx = days.findIndex(d => d.dateStr === proc.calculatedStartDate);
+            if (sIdx === -1) {
+              sIdx = calendar.diffCalendarDays(firstDateStr, proc.calculatedStartDate);
+            }
+            let eIdx = days.findIndex(d => d.dateStr === proc.calculatedEndDate);
+            if (eIdx === -1) {
+              eIdx = calendar.diffCalendarDays(firstDateStr, proc.calculatedEndDate);
             }
 
-            const spanDays = calendar.diffCalendarDays(proc.calculatedStartDate, proc.calculatedEndDate) + 1;
-            const barWidth = Math.max(34, spanDays * dayWidth - 6);
+            if (eIdx < 0 || sIdx >= numDays) {
+              return '';
+            }
+
+            const clampedStart = Math.max(0, sIdx);
+            const clampedEnd = Math.min(numDays - 1, eIdx);
+            const spanDays = clampedEnd - clampedStart + 1;
+
+            const leftPct = (clampedStart / numDays) * 100;
+            const widthPct = (spanDays / numDays) * 100;
 
             return `
               <div class="gantt-bar gantt-bar-${proc.department.toLowerCase()} ${proc.hasLeaveConflict || proc.hasOverlapConflict ? 'conflict' : ''}" 
-                style="left: ${Math.max(0, leftPx)}px; width: ${barWidth}px;"
+                style="left: calc(${leftPct}% + 1px); width: calc(${widthPct}% - 2px); min-width: 14px;"
                 onclick="window.Zoosh.Views.Schedule.inspectProcess('${proc.id}')">
                 
                 <span class="bar-title">
-                  <span style="font-size: 10px; background: rgba(0,0,0,0.15); padding: 1px 4px; border-radius: 2px;">
-                    SRL ${clientSrl}
-                  </span>
-                  ${itemName}
+                  ${spanDays >= 3 ? `
+                    <span style="font-size: 9px; background: rgba(0,0,0,0.18); padding: 0 3px; border-radius: 2px;">
+                      SRL ${clientSrl}
+                    </span>
+                  ` : ''}
+                  <span class="bar-name-text">${itemName}</span>
                 </span>
 
                 <span class="bar-duration-badge">

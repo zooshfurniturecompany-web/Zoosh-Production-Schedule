@@ -68,10 +68,8 @@ window.Zoosh.State = {
       this._state.clients = defaultState.clients || [];
     }
 
-    // Always ensure current date is configured
-    if (!this._state.currentDate) {
-      this._state.currentDate = window.Zoosh.Config.CURRENT_DATE;
-    }
+    // Always ensure current date is aligned with today's live date
+    this._state.currentDate = window.Zoosh.Config.CURRENT_DATE;
 
     // Ensure lastDataUpdatedAt exists
     if (!this._state.lastDataUpdatedAt) {

@@ -30,7 +30,7 @@ window.Zoosh.Scheduler = {
     const cloned = JSON.parse(JSON.stringify(state));
     const calendar = window.Zoosh.Calendar;
     const config = window.Zoosh.Config;
-    const currentDate = cloned.currentDate || config.CURRENT_DATE;
+    const currentDate = config.CURRENT_DATE || cloned.currentDate;
 
     // Ensure synchronized furniture / srls aliases across both legacy and modern collections
     const furnMap = new Map();
@@ -85,7 +85,7 @@ window.Zoosh.Scheduler = {
      * two different projects from being scheduled simultaneously for the same employee.
      * The employee must finish any currently assigned project process before starting a new one.
      */
-    const resolveEarliestStartForEmployee = (requestedStartStr, duration, emp, currentProjectId, currentFurnitureId) => {
+    const resolveEarliestStartForEmployee = (requestedStartStr, duration, emp, currentProcessId, currentProjectId, currentFurnitureId) => {
       if (!emp) {
         let d = calendar.parseDate(requestedStartStr);
         while (calendar.isSunday(d)) d.setDate(d.getDate() + 1);
@@ -93,9 +93,9 @@ window.Zoosh.Scheduler = {
       }
 
       const empAssignments = employeeProjectAssignments.get(emp.id) || [];
-      // Filter commitments from a different project or different furniture item
+      // Filter out self and check against all other commitments for this artisan
       const conflictingAssignments = empAssignments.filter(asgn => 
-        asgn.projectId !== currentProjectId || asgn.furnitureId !== currentFurnitureId
+        asgn.processId !== currentProcessId
       );
 
       let candidateStartStr = requestedStartStr;
@@ -197,7 +197,7 @@ window.Zoosh.Scheduler = {
           const leaveDates = emp && employeeLeavesMap.has(emp.id) ? Array.from(employeeLeavesMap.get(emp.id)) : [];
 
           // Determine earliest start date respecting previous assignments on other projects
-          const actualStartStr = resolveEarliestStartForEmployee(nextAvailableStart, duration, emp, srl.projectId, srl.id);
+          const actualStartStr = resolveEarliestStartForEmployee(nextAvailableStart, duration, emp, proc.id, srl.projectId, srl.id);
 
           // Calculate schedule span skipping Sundays
           const span = calendar.calculateWorkingSpan(actualStartStr, duration, []);
@@ -367,7 +367,7 @@ window.Zoosh.Scheduler = {
           }
 
           // Determine earliest start date respecting dependencies AND previous assignments on other projects
-          const actualStartStr = resolveEarliestStartForEmployee(earliestStart, duration, emp, srl.projectId, srl.id);
+          const actualStartStr = resolveEarliestStartForEmployee(earliestStart, duration, emp, proc.id, srl.projectId, srl.id);
 
           const span = calendar.calculateWorkingSpan(actualStartStr, duration, []);
 
@@ -621,7 +621,7 @@ window.Zoosh.Scheduler = {
         for (let j = i + 1; j < procsList.length; j++) {
           const p1 = procsList[i];
           const p2 = procsList[j];
-          if (p1.projectId === p2.projectId) continue;
+          if (p1.id === p2.id || (p1.projectId === p2.projectId && (p1.furnitureId || p1.srlId) === (p2.furnitureId || p2.srlId))) continue;
 
           const p1Dates = new Set((p1.scheduledSegments || []).map(s => s.dateStr));
           const overlappingDates = (p2.scheduledSegments || []).map(s => s.dateStr).filter(d => p1Dates.has(d));
