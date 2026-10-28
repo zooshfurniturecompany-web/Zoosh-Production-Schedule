@@ -13,9 +13,10 @@ window.Zoosh.Allocator = {
    * @param {string} [startDateStr] Proposed start date (default current date)
    * @param {number} [durationDays] Duration in days
    * @param {string} [excludeEmployeeId] Optional employee to exclude (e.g., currently on leave)
+   * @param {string} [currentProjectId] Optional current project ID (to allow valid intra-project chaining without false penalty)
    * @returns {Object} { suggestedEmployee, rankedCandidates, rationale }
    */
-  suggestEmployee(department, startDateStr, durationDays = 1, excludeEmployeeId = null) {
+  suggestEmployee(department, startDateStr, durationDays = 1, excludeEmployeeId = null, currentProjectId = null) {
     const state = window.Zoosh.State.getState();
     const calendar = window.Zoosh.Calendar;
     const config = window.Zoosh.Config;
@@ -57,6 +58,20 @@ window.Zoosh.Allocator = {
         return !(l.tillDate < targetStartStr || l.fromDate > targetEndStr);
       });
 
+      // Check if candidate has active scheduled work on a DIFFERENT project during target period
+      const overlappingProjectProcs = (state.processes || []).filter(p => {
+        if (p.employeeId !== emp.id) return false;
+        if (p.status === 'COMPLETED') return false;
+        if (currentProjectId && p.projectId === currentProjectId) return false;
+        
+        const pStart = p.calculatedStartDate;
+        const pEnd = p.calculatedEndDate;
+        if (!pStart || !pEnd) return false;
+        
+        return !(pEnd < targetStartStr || pStart > targetEndStr);
+      });
+      const hasProjectOverlap = overlappingProjectProcs.length > 0;
+
       // Calculate total pending days assigned to this employee
       const assignedProcesses = (state.processes || []).filter(p => 
         p.employeeId === emp.id && p.status !== 'COMPLETED'
@@ -67,6 +82,7 @@ window.Zoosh.Allocator = {
       // Scoring criteria: Lower penalty is better!
       let penalty = 0;
       if (hasLeaveOverlap) penalty += 1000;
+      if (hasProjectOverlap) penalty += 2000; // Strict penalty: prevent overlapping projects
       if (emp.department !== department) penalty += 20;
       penalty += totalPendingDays * 10;
       if (emp.overtimeAvailable) penalty -= 5;
@@ -81,6 +97,7 @@ window.Zoosh.Allocator = {
         employee: emp,
         penalty: penalty,
         hasLeaveOverlap: hasLeaveOverlap,
+        hasProjectOverlap: hasProjectOverlap,
         totalPendingDays: totalPendingDays,
         isPrimaryDept: emp.department === department,
         overtimeAvailable: emp.overtimeAvailable
@@ -92,7 +109,9 @@ window.Zoosh.Allocator = {
 
     const winner = scoredCandidates[0].employee;
     let rationale = '';
-    if (scoredCandidates[0].totalPendingDays === 0) {
+    if (scoredCandidates[0].hasProjectOverlap) {
+      rationale = 'All department craftspeople have scheduled project commitments; candidate selected by lowest queue workload';
+    } else if (scoredCandidates[0].totalPendingDays === 0) {
       rationale = 'Lightest workload (currently 0 pending tasks) and fully available';
     } else {
       rationale = `Optimal balance: ${scoredCandidates[0].totalPendingDays} days in queue, available for schedule`;
@@ -121,12 +140,13 @@ window.Zoosh.Allocator = {
     const client = project ? (state.clients || []).find(c => c.id === project.clientId) : null;
     const currentEmp = (state.employees || []).find(e => e.id === proc.employeeId);
 
-    // Suggest replacement excluding current employee
+    // Suggest replacement excluding current employee and checking project context
     const suggestion = this.suggestEmployee(
       proc.department,
       proc.calculatedStartDate,
       proc.durationDays,
-      proc.employeeId
+      proc.employeeId,
+      proc.projectId
     );
 
     const clientSrl = client ? client.srl : (project ? project.clientSrl : (srl ? srl.srlNumber : '—'));

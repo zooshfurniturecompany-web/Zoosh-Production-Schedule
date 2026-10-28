@@ -75,7 +75,68 @@ window.Zoosh.Scheduler = {
       employeeDailyHours.get(empId).set(dateStr, current + hours);
     };
 
-    // 4. Process each Furniture Item / SRL in topological/sequence order
+    // Employee cross-project active assignments tracker:
+    // empId -> Array<{ projectId, processId, furnitureId, startDateStr, endDateStr, endHour, scheduledSegments }>
+    const employeeProjectAssignments = new Map();
+
+    /**
+     * Resolves earliest working start date for an employee to strictly prevent
+     * two different projects from being scheduled simultaneously for the same employee.
+     * The employee must finish any currently assigned project process before starting a new one.
+     */
+    const resolveEarliestStartForEmployee = (requestedStartStr, duration, emp, currentProjectId, currentFurnitureId) => {
+      if (!emp) {
+        let d = calendar.parseDate(requestedStartStr);
+        while (calendar.isSunday(d)) d.setDate(d.getDate() + 1);
+        return calendar.formatDate(d);
+      }
+
+      const empAssignments = employeeProjectAssignments.get(emp.id) || [];
+      // Filter commitments from a different project or different furniture item
+      const conflictingAssignments = empAssignments.filter(asgn => 
+        asgn.projectId !== currentProjectId || asgn.furnitureId !== currentFurnitureId
+      );
+
+      let candidateStartStr = requestedStartStr;
+      let conflictFound = true;
+      let safetyLoop = 0;
+
+      while (conflictFound && safetyLoop < 60) {
+        safetyLoop++;
+        conflictFound = false;
+
+        let checkDate = calendar.parseDate(candidateStartStr);
+        while (calendar.isSunday(checkDate)) {
+          checkDate.setDate(checkDate.getDate() + 1);
+        }
+        candidateStartStr = calendar.formatDate(checkDate);
+
+        // Trial span without leave to evaluate working calendar occupancy
+        const trialSpan = calendar.calculateWorkingSpan(candidateStartStr, duration, []);
+
+        for (const other of conflictingAssignments) {
+          // Check if trial span overlaps an existing project assignment
+          const overlaps = !(trialSpan.endDateStr < other.startDateStr || trialSpan.startDateStr > other.endDateStr);
+          if (overlaps) {
+            conflictFound = true;
+            // Advance candidateStartStr to immediately after other assignment finishes
+            let nextAvailable = calendar.parseDate(other.endDateStr);
+            if (other.endHour >= 17) {
+              nextAvailable.setDate(nextAvailable.getDate() + 1);
+            }
+            while (calendar.isSunday(nextAvailable)) {
+              nextAvailable.setDate(nextAvailable.getDate() + 1);
+            }
+            candidateStartStr = calendar.formatDate(nextAvailable);
+            break; // Re-evaluate against all assignments from the advanced date
+          }
+        }
+      }
+
+      return candidateStartStr;
+    };
+
+    // 4. Process each Furniture Item / SRL in prioritized sequence
     const leaveConflicts = [];
 
     // Group processes by furniture/srl and sort by sequence
@@ -88,8 +149,31 @@ window.Zoosh.Scheduler = {
       srlProcessesMap.get(parentId).push(proc);
     });
 
+    // Sort furniture items by factory production priority:
+    // 1. Completed items (historical baseline)
+    // 2. Project confirmed date / item start date (earlier first)
+    // 3. Project delivery deadline (earlier first)
+    const prioritizedSrls = [...(cloned.srls || cloned.furniture || [])].sort((a, b) => {
+      const projA = projectsMap.get(a.projectId);
+      const projB = projectsMap.get(b.projectId);
+
+      const aDone = a.status === 'COMPLETED' ? 0 : 1;
+      const bDone = b.status === 'COMPLETED' ? 0 : 1;
+      if (aDone !== bDone) return aDone - bDone;
+
+      const dateA = a.startDate || (projA ? projA.confirmedDate : '') || currentDate;
+      const dateB = b.startDate || (projB ? projB.confirmedDate : '') || currentDate;
+      if (dateA !== dateB) return dateA.localeCompare(dateB);
+
+      const deadA = projA ? (projA.deliveryDeadline || '9999-99-99') : '9999-99-99';
+      const deadB = projB ? (projB.deliveryDeadline || '9999-99-99') : '9999-99-99';
+      if (deadA !== deadB) return deadA.localeCompare(deadB);
+
+      return (a.id || '').localeCompare(b.id || '');
+    });
+
     // Schedule each item's processes (supports both structured DAG flows and legacy sequential flows)
-    (cloned.srls || []).forEach(srl => {
+    prioritizedSrls.forEach(srl => {
       const procs = srlProcessesMap.get(srl.id) || [];
       const proj = projectsMap.get(srl.projectId);
       const client = proj ? clientsMap.get(proj.clientId) : null;
@@ -113,12 +197,8 @@ window.Zoosh.Scheduler = {
           const duration = parseFloat(proc.durationDays) || 1;
           const leaveDates = emp && employeeLeavesMap.has(emp.id) ? Array.from(employeeLeavesMap.get(emp.id)) : [];
 
-          // Check earliest working date respecting Sundays
-          let searchDate = calendar.parseDate(nextAvailableStart);
-          while (calendar.isSunday(searchDate)) {
-            searchDate.setDate(searchDate.getDate() + 1);
-          }
-          let actualStartStr = calendar.formatDate(searchDate);
+          // Determine earliest start date respecting previous assignments on other projects
+          const actualStartStr = resolveEarliestStartForEmployee(nextAvailableStart, duration, emp, srl.projectId, srl.id);
 
           // Calculate schedule span skipping Sundays
           const span = calendar.calculateWorkingSpan(actualStartStr, duration, []);
@@ -158,8 +238,21 @@ window.Zoosh.Scheduler = {
           proc.scheduledSegments = span.scheduledSegments;
           proc.endHour = span.endHour;
 
-          // Record employee hours
+          // Record employee cross-project assignment & hours
           if (emp) {
+            if (!employeeProjectAssignments.has(emp.id)) {
+              employeeProjectAssignments.set(emp.id, []);
+            }
+            employeeProjectAssignments.get(emp.id).push({
+              projectId: srl.projectId,
+              furnitureId: srl.id,
+              processId: proc.id,
+              startDateStr: span.startDateStr,
+              endDateStr: span.endDateStr,
+              endHour: span.endHour,
+              scheduledSegments: span.scheduledSegments
+            });
+
             span.scheduledSegments.forEach(seg => {
               addEmpHours(emp.id, seg.dateStr, seg.hours);
             });
@@ -274,11 +367,8 @@ window.Zoosh.Scheduler = {
             });
           }
 
-          let searchDate = calendar.parseDate(earliestStart);
-          while (calendar.isSunday(searchDate)) {
-            searchDate.setDate(searchDate.getDate() + 1);
-          }
-          let actualStartStr = calendar.formatDate(searchDate);
+          // Determine earliest start date respecting dependencies AND previous assignments on other projects
+          const actualStartStr = resolveEarliestStartForEmployee(earliestStart, duration, emp, srl.projectId, srl.id);
 
           const span = calendar.calculateWorkingSpan(actualStartStr, duration, []);
 
@@ -315,7 +405,21 @@ window.Zoosh.Scheduler = {
           proc.scheduledSegments = span.scheduledSegments;
           proc.endHour = span.endHour;
 
+          // Record employee cross-project assignment & hours
           if (emp) {
+            if (!employeeProjectAssignments.has(emp.id)) {
+              employeeProjectAssignments.set(emp.id, []);
+            }
+            employeeProjectAssignments.get(emp.id).push({
+              projectId: srl.projectId,
+              furnitureId: srl.id,
+              processId: proc.id,
+              startDateStr: span.startDateStr,
+              endDateStr: span.endDateStr,
+              endHour: span.endHour,
+              scheduledSegments: span.scheduledSegments
+            });
+
             span.scheduledSegments.forEach(seg => {
               addEmpHours(emp.id, seg.dateStr, seg.hours);
             });
@@ -499,12 +603,75 @@ window.Zoosh.Scheduler = {
       });
     }
 
+    // Alert 4: Cross-project employee overlapping conflict validation
+    const employeeOverlapConflicts = [];
+    const empActiveProcs = new Map();
+
+    (cloned.processes || []).forEach(p => {
+      if (!p.employeeId || p.status === 'COMPLETED') return;
+      if (!p.scheduledSegments || p.scheduledSegments.length === 0) return;
+      if (!empActiveProcs.has(p.employeeId)) {
+        empActiveProcs.set(p.employeeId, []);
+      }
+      empActiveProcs.get(p.employeeId).push(p);
+    });
+
+    empActiveProcs.forEach((procsList, empId) => {
+      const emp = employeesMap.get(empId);
+      for (let i = 0; i < procsList.length; i++) {
+        for (let j = i + 1; j < procsList.length; j++) {
+          const p1 = procsList[i];
+          const p2 = procsList[j];
+          if (p1.projectId === p2.projectId) continue;
+
+          const p1Dates = new Set((p1.scheduledSegments || []).map(s => s.dateStr));
+          const overlappingDates = (p2.scheduledSegments || []).map(s => s.dateStr).filter(d => p1Dates.has(d));
+
+          if (overlappingDates.length > 0) {
+            p1.hasOverlapConflict = true;
+            p2.hasOverlapConflict = true;
+
+            const proj1 = projectsMap.get(p1.projectId);
+            const proj2 = projectsMap.get(p2.projectId);
+            const srl1 = srlsMap.get(p1.furnitureId || p1.srlId);
+            const srl2 = srlsMap.get(p2.furnitureId || p2.srlId);
+
+            employeeOverlapConflicts.push({
+              employeeId: empId,
+              employeeName: emp ? emp.name : 'Unknown',
+              process1Id: p1.id,
+              process2Id: p2.id,
+              project1Name: proj1 ? proj1.name : 'Project 1',
+              project2Name: proj2 ? proj2.name : 'Project 2',
+              furniture1Name: srl1 ? (srl1.name || srl1.furnitureName) : 'Item 1',
+              furniture2Name: srl2 ? (srl2.name || srl2.furnitureName) : 'Item 2',
+              overlappingDates: overlappingDates
+            });
+          }
+        }
+      }
+    });
+
+    employeeOverlapConflicts.forEach(conf => {
+      alerts.push({
+        id: `alert_overlap_${conf.employeeId}_${conf.process1Id}_${conf.process2Id}`,
+        type: 'danger',
+        title: `Overlapping Projects Conflict: ${conf.employeeName}`,
+        message: `${conf.employeeName} is assigned to two different projects simultaneously: "${conf.project1Name}" and "${conf.project2Name}" on ${conf.overlappingDates.join(', ')}. Work must be rescheduled or reallocated.`,
+        actionType: 'REALLOCATE_WORK',
+        actionLabel: 'Reallocate Work',
+        targetId: conf.process2Id,
+        metadata: conf
+      });
+    });
+
     const totalProjects = this.calculateTotalProjects(cloned, currentDate);
     const employeeCounts = this.calculateEmployeeCounts(cloned);
     const todaysReminders = this.getTodaysReminders(cloned, currentDate);
 
     cloned.computed = {
       leaveConflicts,
+      employeeOverlapConflicts,
       todayTasks,
       alerts,
       deptWorkload,

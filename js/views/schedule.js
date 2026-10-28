@@ -10,8 +10,8 @@ window.Zoosh = window.Zoosh || {};
 window.Zoosh.Views = window.Zoosh.Views || {};
 
 window.Zoosh.Views.Schedule = {
-  viewMode: 'people',      // 'people' | 'department' | 'project' | 'today'
-  zoomMode: 'month',       // 'today' | 'week' | 'month'
+  viewMode: 'today',       // 'people' | 'department' | 'project' | 'today'
+  zoomMode: 'today',       // 'today' | 'week' | 'month'
   currentYear: 2026,
   currentMonth: 8,         // 0-indexed (8 = September)
   centerDateStr: '2026-09-28',
@@ -24,16 +24,56 @@ window.Zoosh.Views.Schedule = {
   filterStatus: 'ALL',
   searchQuery: '',
 
+  getTodayDateStr() {
+    const state = window.Zoosh.State && window.Zoosh.State.getState();
+    const config = window.Zoosh.Config;
+    return (state && state.currentDate) || (config && config.CURRENT_DATE) || '2026-09-28';
+  },
+
+  /**
+   * Called whenever the Production Schedule page is newly opened.
+   * Automatically displays the current date, navigates calendar to today,
+   * and sets the default view to today's production schedule.
+   */
+  onOpen() {
+    const todayStr = this.getTodayDateStr();
+    const parts = todayStr.split('-');
+    this.currentYear = parseInt(parts[0], 10);
+    this.currentMonth = parseInt(parts[1], 10) - 1;
+    this.centerDateStr = todayStr;
+
+    // Default view: today's production schedule
+    this.zoomMode = 'today';
+    this.viewMode = 'today';
+    this.filterClient = 'ALL';
+    this.filterProject = 'ALL';
+    this.filterDepartment = 'ALL';
+    this.filterEmployee = 'ALL';
+    this.filterStatus = 'ALL';
+    this.searchQuery = '';
+  },
+
   render(container) {
     if (typeof window !== 'undefined' && window.innerWidth <= 768 && !this.mobileInitialized) {
       this.zoomMode = 'today';
+      this.viewMode = 'today';
       this.mobileInitialized = true;
     }
 
     const state = window.Zoosh.State.getState();
     const calendar = window.Zoosh.Calendar;
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const currentMonthLabel = `${months[this.currentMonth]} ${this.currentYear}`;
+    const todayStr = this.getTodayDateStr();
+    
+    // Dynamic calendar header display depending on active zoom / view
+    let calendarTitleDisplay = `${months[this.currentMonth]} ${this.currentYear}`;
+    if (this.zoomMode === 'today' || this.viewMode === 'today') {
+      calendarTitleDisplay = `📅 ${calendar.formatDisplayDate(this.centerDateStr || todayStr, true, true)}`;
+    } else if (this.zoomMode === 'week') {
+      const weekDays = calendar.getWeekDays(this.centerDateStr || todayStr);
+      calendarTitleDisplay = `${calendar.formatDisplayDate(weekDays[0].dateStr, false, false)} – ${calendar.formatDisplayDate(weekDays[6].dateStr, false, true)}`;
+    }
+
     const auth = window.Zoosh.Auth;
     const canCreate = auth ? auth.canCreate() : true;
 
@@ -42,7 +82,7 @@ window.Zoosh.Views.Schedule = {
       <div class="view-header desktop-only" style="margin-bottom: 16px;">
         <div>
           <h2 class="view-header-title">Production Schedule</h2>
-          <div class="view-header-subtitle">Real-time factory timeline &amp; forward process sequencing</div>
+          <div class="view-header-subtitle">Real-time factory timeline &amp; forward process sequencing &bull; Today: <strong>${calendar.formatDisplayDate(todayStr, true, true)}</strong></div>
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
           <button class="btn btn-secondary" onclick="window.Zoosh.Views.Overview.openRemindersModal()" title="View and add schedule reminders">
@@ -105,7 +145,7 @@ window.Zoosh.Views.Schedule = {
             <!-- Date Navigation -->
             <div class="date-nav-controls">
               <button class="nav-arrow-btn" onclick="window.Zoosh.Views.Schedule.navigateCalendar(-1)">&larr;</button>
-              <div class="calendar-title-display">${currentMonthLabel}</div>
+              <div class="calendar-title-display">${calendarTitleDisplay}</div>
               <button class="nav-arrow-btn" onclick="window.Zoosh.Views.Schedule.navigateCalendar(1)">&rarr;</button>
               <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Schedule.goToToday()">Today</button>
             </div>
@@ -203,15 +243,15 @@ window.Zoosh.Views.Schedule = {
     const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
     let days = [];
 
-    if (this.zoomMode === 'month') {
-      days = calendar.getMonthDays(this.currentYear, this.currentMonth);
-    } else if (this.zoomMode === 'week') {
-      days = calendar.getWeekDays(this.centerDateStr);
-    } else if (this.zoomMode === 'today') {
+    if (this.viewMode === 'today' || this.zoomMode === 'today') {
       if (isMobile) {
         return this.renderMobileTodayChronological();
       }
       return this.renderHourlyTodayGrid();
+    } else if (this.zoomMode === 'month') {
+      days = calendar.getMonthDays(this.currentYear, this.currentMonth);
+    } else if (this.zoomMode === 'week') {
+      days = calendar.getWeekDays(this.centerDateStr);
     }
 
     const state = window.Zoosh.State.getState();
@@ -444,7 +484,7 @@ window.Zoosh.Views.Schedule = {
       return true;
     });
 
-    if (this.viewMode === 'people') {
+    if (this.viewMode === 'people' || this.viewMode === 'today') {
       return (state.employees || []).filter(e => e.active).map(emp => ({
         id: emp.id,
         primaryLabel: emp.name,
@@ -533,7 +573,7 @@ window.Zoosh.Views.Schedule = {
             const barWidth = Math.max(34, spanDays * dayWidth - 6);
 
             return `
-              <div class="gantt-bar gantt-bar-${proc.department.toLowerCase()} ${proc.hasLeaveConflict ? 'conflict' : ''}" 
+              <div class="gantt-bar gantt-bar-${proc.department.toLowerCase()} ${proc.hasLeaveConflict || proc.hasOverlapConflict ? 'conflict' : ''}" 
                 style="left: ${Math.max(0, leftPx)}px; width: ${barWidth}px;"
                 onclick="window.Zoosh.Views.Schedule.inspectProcess('${proc.id}')">
                 
@@ -557,6 +597,7 @@ window.Zoosh.Views.Schedule = {
                   </div>
                   <div style="font-size: 11px; margin-top: 2px;">Duration: ${proc.durationDays} working days (${(parseFloat(proc.durationDays) || 1) * 8}h)</div>
                   ${proc.hasLeaveConflict ? '<div style="color: #f97316; font-weight: 700; margin-top: 4px;">⚠️ Artisan has approved leave! Click to reallocate.</div>' : ''}
+                  ${proc.hasOverlapConflict ? '<div style="color: #ef4444; font-weight: 700; margin-top: 4px;">⚠️ Overlapping project conflict! Multiple projects on this date.</div>' : ''}
                 </div>
               </div>
             `;
@@ -568,11 +609,21 @@ window.Zoosh.Views.Schedule = {
 
   setViewMode(mode) {
     this.viewMode = mode;
+    if (mode === 'today') {
+      this.zoomMode = 'today';
+    } else if (this.zoomMode === 'today') {
+      this.zoomMode = 'month';
+    }
     this.render(document.getElementById('view-container'));
   },
 
   setZoomMode(mode) {
     this.zoomMode = mode;
+    if (mode === 'today') {
+      this.viewMode = 'today';
+    } else if (this.viewMode === 'today') {
+      this.viewMode = 'people';
+    }
     this.render(document.getElementById('view-container'));
   },
 
@@ -589,11 +640,11 @@ window.Zoosh.Views.Schedule = {
   },
 
   goToToday() {
-    const config = window.Zoosh.Config;
-    const parts = config.CURRENT_DATE.split('-');
+    const todayStr = this.getTodayDateStr();
+    const parts = todayStr.split('-');
     this.currentYear = parseInt(parts[0], 10);
     this.currentMonth = parseInt(parts[1], 10) - 1;
-    this.centerDateStr = config.CURRENT_DATE;
+    this.centerDateStr = todayStr;
     this.render(document.getElementById('view-container'));
   },
 
@@ -698,6 +749,19 @@ window.Zoosh.Views.Schedule = {
             Status: <strong>${proc.status} (${proc.progressPercent || 0}%)</strong> &bull; Duration: <strong>${proc.durationDays} days</strong> &bull; Observer mode (read-only).
           </div>
         `}
+
+        ${proc.hasOverlapConflict ? `
+          <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 12px; color: #991b1b;">
+            ⚠️ <strong>Overlapping Project Conflict:</strong> Assigned artisan has another project scheduled during this period.
+            ${canEdit ? `
+              <div style="margin-top: 6px;">
+                <button class="btn btn-sm btn-secondary" style="color: #b91c1c;" onclick="window.Zoosh.Modal.close(); window.Zoosh.ReallocateModal.open('${proc.id}')">
+                  Open Smart Reallocation Wizard &rarr;
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
 
         ${proc.hasLeaveConflict ? `
           <div style="background: #fffbeb; border: 1px solid #fde68a; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 12px; color: #92400e;">

@@ -187,6 +187,13 @@ window.Zoosh.App = {
     this.currentView = viewName;
     this.mobileBackCallback = null;
 
+    // When newly opening the Production Schedule page, automatically default to today's date and today's schedule
+    if (viewName === 'schedule') {
+      if (window.Zoosh.Views && window.Zoosh.Views.Schedule && typeof window.Zoosh.Views.Schedule.onOpen === 'function') {
+        window.Zoosh.Views.Schedule.onOpen();
+      }
+    }
+
     // Update active class on desktop nav links
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
