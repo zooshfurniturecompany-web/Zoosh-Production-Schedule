@@ -458,7 +458,7 @@ window.Zoosh.Views.Projects = {
                 ${project.name}
               </h2>
               <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
-                Client: <strong>${clientName}</strong> &bull; Location: <strong>${project.location}</strong>
+                Client: <strong>${clientName} (SRL ${client ? client.srl : (project.clientSrl || '—')})</strong> &bull; Location: <strong>${project.location}</strong>
               </div>
               ${project.notes ? `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px; font-style: italic;">"${project.notes}"</div>` : ''}
             </div>

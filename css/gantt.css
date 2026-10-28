@@ -8,30 +8,28 @@
   flex-direction: column;
   background: #ffffff;
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  height: calc(100vh - 118px);
+  height: calc(100vh - 78px);
 }
 
-/* Scheduler Controls Toolbar */
-.schedule-toolbar {
+/* Unified Top Controls & Filtering Bar */
+.schedule-control-bar {
   padding: 6px 14px;
   border-bottom: 1px solid var(--border-light);
   background-color: #ffffff;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
-.schedule-toolbar-left,
-.schedule-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background-color: var(--border-light);
+  margin: 0 4px;
 }
 
 /* View Mode Buttons (People, Dept, Project, Today) */
@@ -158,11 +156,11 @@
 }
 
 .gantt-label-col-header {
-  width: 140px;
-  min-width: 140px;
-  max-width: 140px;
-  padding: 5px 8px;
-  font-size: 9.5px;
+  width: 155px;
+  min-width: 155px;
+  max-width: 155px;
+  padding: 6px 10px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -247,11 +245,11 @@
   z-index: 13;
 }
 
-/* Rows in Gantt - High Density for Multi-Carpenter Visibility */
+/* Rows in Gantt - High Density with Prominent Craftsperson Visibility */
 .gantt-row {
   display: flex;
-  min-height: 32px;
-  height: 32px;
+  min-height: 36px;
+  height: 36px;
   border-bottom: 1px solid var(--border-subtle);
   position: relative;
   transition: background-color 0.1s;
@@ -262,10 +260,10 @@
 }
 
 .gantt-row-label {
-  width: 140px;
-  min-width: 140px;
-  max-width: 140px;
-  padding: 2px 8px;
+  width: 155px;
+  min-width: 155px;
+  max-width: 155px;
+  padding: 2px 10px;
   border-right: 1px solid var(--border-light);
   background-color: #ffffff;
   position: sticky;
@@ -274,30 +272,83 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  border-left: 4px solid #94a3b8;
+}
+
+/* Distinctive Department Color Left Accent Borders */
+.gantt-row-label.dept-accent-carpentry {
+  border-left: 4px solid var(--dept-carpentry);
+}
+.gantt-row-label.dept-accent-polish {
+  border-left: 4px solid var(--dept-polish);
+}
+.gantt-row-label.dept-accent-upholstery {
+  border-left: 4px solid var(--dept-upholstery);
+}
+.gantt-row-label.dept-accent-metal {
+  border-left: 4px solid var(--dept-metal);
+}
+.gantt-row-label.dept-accent-turning {
+  border-left: 4px solid var(--dept-turning);
 }
 
 .gantt-row:hover .gantt-row-label {
   background-color: #fcfdfe;
 }
 
-.row-label-primary {
-  font-size: 11.5px;
+/* Craftsperson Name: Highly visible, bold and clear */
+.artisan-name {
+  font-size: 13px;
   font-weight: 700;
-  color: var(--text-main);
+  color: #0f172a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.1;
+  line-height: 1.2;
 }
 
-.row-label-secondary {
-  font-size: 9px;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  line-height: 1;
+/* Small Department Tag reflecting brand color */
+.mini-dept-tag {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  display: inline-block;
+  line-height: 1.1;
   margin-top: 1px;
+  width: fit-content;
+}
+
+.mini-dept-tag.dept-tag-carpentry {
+  background-color: var(--dept-carpentry-bg);
+  color: var(--dept-carpentry-text);
+  border: 1px solid var(--dept-carpentry-border);
+}
+
+.mini-dept-tag.dept-tag-polish {
+  background-color: var(--dept-polish-bg);
+  color: var(--dept-polish-text);
+  border: 1px solid var(--dept-polish-border);
+}
+
+.mini-dept-tag.dept-tag-upholstery {
+  background-color: var(--dept-upholstery-bg);
+  color: var(--dept-upholstery-text);
+  border: 1px solid var(--dept-upholstery-border);
+}
+
+.mini-dept-tag.dept-tag-metal {
+  background-color: var(--dept-metal-bg);
+  color: var(--dept-metal-text);
+  border: 1px solid var(--dept-metal-border);
+}
+
+.mini-dept-tag.dept-tag-turning {
+  background-color: var(--dept-turning-bg);
+  color: var(--dept-turning-text);
+  border: 1px solid var(--dept-turning-border);
 }
 
 /* Timeline Track for Bars */
@@ -306,8 +357,8 @@
   flex: 1;
   width: 100%;
   position: relative;
-  min-height: 32px;
-  height: 32px;
+  min-height: 36px;
+  height: 36px;
 }
 
 .gantt-cell-bg {
@@ -328,19 +379,19 @@
 /* Real Calculated Gantt Bar - Simple & Crisp */
 .gantt-bar {
   position: absolute;
-  top: 3px;
-  height: 25px;
+  top: 4px;
+  height: 27px;
   border-radius: var(--radius-sm);
-  padding: 0 5px;
+  padding: 0 6px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 3px;
-  font-size: 9.5px;
+  gap: 4px;
+  font-size: 10px;
   font-weight: 600;
   cursor: pointer;
   z-index: 5;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   border: 1px solid transparent;
   transition: transform 0.12s, box-shadow 0.12s, filter 0.12s;
   overflow: hidden;

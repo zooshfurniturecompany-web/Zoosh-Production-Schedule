@@ -85,15 +85,47 @@ window.Zoosh.Views.Schedule = {
     const canCreate = auth ? auth.canCreate() : true;
 
     container.innerHTML = `
-      <!-- Desktop Header (>768px) -->
-      <div class="view-header desktop-only" style="margin-bottom: 8px;">
-        <div>
-          <h2 class="view-header-title" style="font-size: 18px; margin-bottom: 2px;">Production Schedule</h2>
-          <div class="view-header-subtitle" style="font-size: 11px;">Real-time factory timeline &bull; Today: <strong>${calendar.formatDisplayDate(todayStr, true, true)}</strong></div>
-        </div>
-        <div style="display: flex; gap: 6px; align-items: center;">
+      <div class="schedule-container">
+        <!-- Unified Controls & Filter Bar (Date Changer + Search + Filters + Zoom + Actions) -->
+        <div class="schedule-control-bar">
+          <!-- Date Navigation -->
+          <div class="date-nav-controls">
+            <button class="nav-arrow-btn" onclick="window.Zoosh.Views.Schedule.navigateCalendar(-1)" title="Previous Month">&larr;</button>
+            <div class="calendar-title-display">${calendarTitleDisplay}</div>
+            <button class="nav-arrow-btn" onclick="window.Zoosh.Views.Schedule.navigateCalendar(1)" title="Next Month">&rarr;</button>
+            <button class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 11px;" onclick="window.Zoosh.Views.Schedule.goToToday()">Today</button>
+          </div>
+
+          <div class="toolbar-divider"></div>
+
+          <!-- Search Box -->
+          <input type="text" class="search-input-box" placeholder="🔍 Search Client, SRL, Furniture..." 
+            value="${this.searchQuery}" 
+            oninput="window.Zoosh.Views.Schedule.searchQuery = this.value; window.Zoosh.Views.Schedule.refreshGantt()" />
+
+          <!-- Filters -->
+          ${this.renderFilterDropdowns()}
+
+          <div style="flex: 1;"></div>
+
+          <!-- Zoom Mode Switcher -->
+          <div class="btn-group">
+            <button class="btn-group-btn ${this.zoomMode === 'today' ? 'active' : ''}" 
+              onclick="window.Zoosh.Views.Schedule.setZoomMode('today')">
+              Today
+            </button>
+            <button class="btn-group-btn ${this.zoomMode === 'week' ? 'active' : ''}" 
+              onclick="window.Zoosh.Views.Schedule.setZoomMode('week')">
+              Week
+            </button>
+            <button class="btn-group-btn ${this.zoomMode === 'month' ? 'active' : ''}" 
+              onclick="window.Zoosh.Views.Schedule.setZoomMode('month')">
+              Month
+            </button>
+          </div>
+
           <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 11px;" onclick="window.Zoosh.Views.Overview.openRemindersModal()" title="View and add schedule reminders">
-            🔔 Reminders ${(state.reminders || []).length > 0 ? `<span class="badge badge-primary" style="font-size: 9.5px; padding: 1px 5px; margin-left: 3px;">${(state.reminders || []).filter(r => r.status !== 'DONE').length}</span>` : ''}
+            🔔 Reminders ${(state.reminders || []).length > 0 ? `<span class="badge badge-primary" style="font-size: 9px; padding: 1px 4px; margin-left: 2px;">${(state.reminders || []).filter(r => r.status !== 'DONE').length}</span>` : ''}
           </button>
           ${canCreate ? `
             <button class="btn btn-primary btn-sm" style="padding: 4px 10px; font-size: 11px;" onclick="window.Zoosh.AddFurnitureWizard.open()">
@@ -104,86 +136,6 @@ window.Zoosh.Views.Schedule = {
               👁️ Visitor Read-Only Mode
             </span>
           `}
-        </div>
-      </div>
-
-      <!-- Mobile View Switcher (<768px) -->
-      <div class="mobile-only" style="margin-bottom: 14px;">
-        <div class="btn-group" style="width: 100%; display: flex;">
-          <button class="btn-group-btn ${this.zoomMode === 'today' ? 'active' : ''}" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;"
-            onclick="window.Zoosh.Views.Schedule.setZoomMode('today')">
-            Today
-          </button>
-          <button class="btn-group-btn ${this.zoomMode === 'week' ? 'active' : ''}" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;"
-            onclick="window.Zoosh.Views.Schedule.setZoomMode('week')">
-            Week
-          </button>
-          <button class="btn-group-btn ${this.zoomMode === 'month' ? 'active' : ''}" style="flex: 1; text-align: center; padding: 8px 0; font-size: 13px;"
-            onclick="window.Zoosh.Views.Schedule.setZoomMode('month')">
-            Month
-          </button>
-        </div>
-      </div>
-
-      <div class="schedule-container">
-        <!-- Desktop Controls Toolbar (>768px) -->
-        <div class="schedule-toolbar desktop-only">
-          <div class="schedule-toolbar-left">
-            <!-- View Mode Switcher -->
-            <div class="btn-group">
-              <button class="btn-group-btn ${this.viewMode === 'people' ? 'active' : ''}" 
-                onclick="window.Zoosh.Views.Schedule.setViewMode('people')">
-                People View
-              </button>
-              <button class="btn-group-btn ${this.viewMode === 'department' ? 'active' : ''}" 
-                onclick="window.Zoosh.Views.Schedule.setViewMode('department')">
-                Department View
-              </button>
-              <button class="btn-group-btn ${this.viewMode === 'project' ? 'active' : ''}" 
-                onclick="window.Zoosh.Views.Schedule.setViewMode('project')">
-                Project View
-              </button>
-              <button class="btn-group-btn ${this.viewMode === 'today' ? 'active' : ''}" 
-                onclick="window.Zoosh.Views.Schedule.setViewMode('today')">
-                Today View
-              </button>
-            </div>
-
-            <!-- Date Navigation -->
-            <div class="date-nav-controls">
-              <button class="nav-arrow-btn" onclick="window.Zoosh.Views.Schedule.navigateCalendar(-1)">&larr;</button>
-              <div class="calendar-title-display">${calendarTitleDisplay}</div>
-              <button class="nav-arrow-btn" onclick="window.Zoosh.Views.Schedule.navigateCalendar(1)">&rarr;</button>
-              <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Schedule.goToToday()">Today</button>
-            </div>
-          </div>
-
-          <div class="schedule-toolbar-right">
-            <!-- Zoom Controls -->
-            <div class="btn-group">
-              <button class="btn-group-btn ${this.zoomMode === 'today' ? 'active' : ''}" 
-                onclick="window.Zoosh.Views.Schedule.setZoomMode('today')">
-                Today
-              </button>
-              <button class="btn-group-btn ${this.zoomMode === 'week' ? 'active' : ''}" 
-                onclick="window.Zoosh.Views.Schedule.setZoomMode('week')">
-                Week
-              </button>
-              <button class="btn-group-btn ${this.zoomMode === 'month' ? 'active' : ''}" 
-                onclick="window.Zoosh.Views.Schedule.setZoomMode('month')">
-                Month
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Filters Bar -->
-        <div class="schedule-filters-bar ${this.zoomMode === 'today' ? 'desktop-only' : ''}">
-          <input type="text" class="search-input-box" placeholder="🔍 Search Client, SRL, Furniture..." 
-            value="${this.searchQuery}" 
-            oninput="window.Zoosh.Views.Schedule.searchQuery = this.value; window.Zoosh.Views.Schedule.refreshGantt()" />
-
-          ${this.renderFilterDropdowns()}
         </div>
 
         <!-- Gantt Viewport -->
@@ -280,7 +232,7 @@ window.Zoosh.Views.Schedule = {
         <!-- Header -->
         <div class="gantt-header-row">
           <div class="gantt-label-col-header">
-            ${this.viewMode === 'people' ? 'Craftsperson' : (this.viewMode === 'department' ? 'Department' : 'Project / SRL')}
+            Craftsperson
           </div>
           <div class="gantt-timeline-header">
             ${days.map(d => `
@@ -541,11 +493,9 @@ window.Zoosh.Views.Schedule = {
 
     return `
       <div class="gantt-row">
-        <div class="gantt-row-label">
-          <div class="row-label-primary">${row.primaryLabel}</div>
-          <div class="row-label-secondary">
-            ${row.badgeType ? `<span class="badge badge-${row.badgeType}">${row.secondaryLabel}</span>` : row.secondaryLabel}
-          </div>
+        <div class="gantt-row-label dept-accent-${row.badgeType || 'carpentry'}">
+          <div class="artisan-name">${row.primaryLabel}</div>
+          <div class="mini-dept-tag dept-tag-${row.badgeType || 'carpentry'}">${row.secondaryLabel}</div>
         </div>
 
         <div class="gantt-row-track">
@@ -561,6 +511,7 @@ window.Zoosh.Views.Schedule = {
             const clientName = client ? client.name : (proj ? proj.clientName : 'Client');
             const emp = employeesMap.get(proc.employeeId);
             const itemName = srl ? (srl.name || srl.furnitureName) : 'Furniture';
+            const productCode = srl ? (srl.productCode || srl.itemCode || (window.Zoosh.State && window.Zoosh.State.getItemProductCode ? window.Zoosh.State.getItemProductCode(srl) : '')) : '';
             
             if (proc.calculatedEndDate < firstDateStr || proc.calculatedStartDate > lastDateStr) {
               return '';
@@ -592,10 +543,11 @@ window.Zoosh.Views.Schedule = {
                 onclick="window.Zoosh.Views.Schedule.inspectProcess('${proc.id}')">
                 
                 <span class="bar-title">
-                  ${spanDays >= 3 ? `
-                    <span style="font-size: 9px; background: rgba(0,0,0,0.18); padding: 0 3px; border-radius: 2px;">
-                      SRL ${clientSrl}
+                  ${productCode ? `
+                    <span class="bar-product-code" style="font-size: 9px; background: rgba(0,0,0,0.22); padding: 0 4px; border-radius: 2px; font-weight: 700; font-family: var(--font-mono); white-space: nowrap;">
+                      ${productCode}
                     </span>
+                    <span style="opacity: 0.7; margin: 0 2px;">&mdash;</span>
                   ` : ''}
                   <span class="bar-name-text">${itemName}</span>
                 </span>
@@ -606,7 +558,9 @@ window.Zoosh.Views.Schedule = {
 
                 <!-- Hover Tooltip -->
                 <div class="gantt-tooltip">
-                  <div style="font-weight: 700; margin-bottom: 2px;">${itemName} &bull; Client: ${clientName} (SRL ${clientSrl})</div>
+                  <div style="font-weight: 700; margin-bottom: 2px;">
+                    ${productCode ? `<strong style="color: #38bdf8;">${productCode}</strong> &mdash; ` : ''}${itemName} &bull; Client: ${clientName} (SRL ${clientSrl})
+                  </div>
                   <div style="color: #94a3b8; font-size: 11px;">Stage: ${proc.department} &bull; Artisan: ${emp ? emp.name : 'Unassigned'}</div>
                   <div style="margin-top: 4px; font-family: var(--font-mono); font-size: 11px;">
                     ${calendar.formatDisplayDate(proc.calculatedStartDate, false, false)} &rarr; ${calendar.formatDisplayDate(proc.calculatedEndDate, false, false)}

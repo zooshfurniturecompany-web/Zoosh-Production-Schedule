@@ -330,8 +330,8 @@ window.Zoosh.DemoData = {
       {
         id: 'furn_101',
         projectId: 'proj_sreelal',
-        productCode: 'SRL 101',
-        itemCode: 'SRL 101',
+        productCode: 'SRL 001',
+        itemCode: 'SRL 001',
         name: 'Dining Table & Chairs Suite',
         furnitureName: 'Dining Table & Chairs Suite',
         flowTypeId: 'flow_type_2',
@@ -342,8 +342,8 @@ window.Zoosh.DemoData = {
       {
         id: 'furn_102',
         projectId: 'proj_rajeev',
-        productCode: 'RJB 101',
-        itemCode: 'RJB 101',
+        productCode: 'RJB 001',
+        itemCode: 'RJB 001',
         name: 'L-Shape Sectional Sofa',
         furnitureName: 'L-Shape Sectional Sofa',
         flowTypeId: 'flow_type_2',
@@ -354,8 +354,8 @@ window.Zoosh.DemoData = {
       {
         id: 'furn_103',
         projectId: 'proj_swalih',
-        productCode: 'SWL 101',
-        itemCode: 'SWL 101',
+        productCode: 'SWL 001',
+        itemCode: 'SWL 001',
         name: 'Master Suite Teak Wardrobe',
         furnitureName: 'Master Suite Teak Wardrobe',
         flowTypeId: 'flow_type_1',
@@ -366,8 +366,8 @@ window.Zoosh.DemoData = {
       {
         id: 'furn_104',
         projectId: 'proj_pranav',
-        productCode: 'PRN 101',
-        itemCode: 'PRN 101',
+        productCode: 'PRN 001',
+        itemCode: 'PRN 001',
         name: 'Executive Walnut Desk',
         furnitureName: 'Executive Walnut Desk',
         flowTypeId: 'flow_type_1',

@@ -308,7 +308,7 @@ body {
 }
 
 .view-viewport:has(.schedule-container) {
-  padding: 10px 16px;
+  padding: 4px 10px;
 }
 
 /* Common View Header */

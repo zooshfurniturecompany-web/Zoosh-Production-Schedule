@@ -314,7 +314,7 @@ window.Zoosh.Views.Overview = {
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
           <div>
             <div style="font-weight: 700; font-size: 13.5px; color: var(--text-main); line-height: 1.3;">
-              ${t.furnitureName}
+              ${t.productCode ? `<span style="font-family: var(--font-mono); font-size: 11px; background: #e2e8f0; padding: 1px 5px; border-radius: 3px; margin-right: 4px;">${t.productCode}</span>` : ''}${t.furnitureName}
             </div>
             <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
               <strong style="color: var(--text-secondary);">SRL ${t.clientSrl}</strong> &bull; ${t.clientName}

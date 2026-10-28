@@ -508,6 +508,7 @@ window.Zoosh.Scheduler = {
         const clientSrl = client ? client.srl : (proj ? proj.clientSrl : (srl ? srl.srlNumber : '—'));
         const clientName = client ? client.name : (proj ? proj.clientName : 'Client');
         const furnitureName = srl ? (srl.furnitureName || srl.name) : 'Furniture';
+        const productCode = srl ? (srl.productCode || srl.itemCode || '') : '';
 
         const startH = Math.floor(todaySeg.startHour);
         const startM = Math.round((todaySeg.startHour - startH) * 60);
@@ -520,6 +521,7 @@ window.Zoosh.Scheduler = {
           processId: proc.id,
           furnitureId: srl ? srl.id : proc.srlId,
           srlId: proc.srlId,
+          productCode: productCode,
           srlNumber: clientSrl,
           clientSrl: clientSrl,
           clientName: clientName,

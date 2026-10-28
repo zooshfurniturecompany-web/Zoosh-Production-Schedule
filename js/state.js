@@ -82,6 +82,9 @@ window.Zoosh.State = {
       this._state.reminders = defaultState.reminders || [];
     }
 
+    // Ensure product codes follow CLIENTCODE 001 format
+    this._migrateProductCodes();
+
     // Run initial schedule calculation
     this.recalculate();
   },
@@ -163,6 +166,7 @@ window.Zoosh.State = {
     if (!remoteState || !remoteState.projects) return;
     this._state = remoteState;
     this._syncFurnitureAliases();
+    this._migrateProductCodes();
     // Skip pushing back to avoid ping-pong loop
     this.recalculate(true);
   },
@@ -221,34 +225,127 @@ window.Zoosh.State = {
   },
 
   /**
-   * Get next sequential product code for furniture items under a project
-   * e.g. under Sreelal (SRL) -> "SRL 101", "SRL 102"; under Ganeshan (GNS) -> "GNS 101"
+   * Get next sequential product code for furniture items under a client
+   * Format: CLIENTCODE 001, CLIENTCODE 002, CLIENTCODE 003
+   * e.g. Ganesh -> "GNS 001", Sreelal -> "SRL 001", Rajeev Babu -> "RJB 001"
    */
   getNextProductCode(projectId) {
     const proj = (this._state.projects || []).find(p => p.id === projectId);
     let clientCode = 'PRD';
+    let client = null;
     if (proj) {
-      const client = (this._state.clients || []).find(c => c.id === proj.clientId);
+      client = (this._state.clients || []).find(c => c.id === proj.clientId);
       if (client && (client.code || client.clientCode)) {
         clientCode = client.code || client.clientCode;
       } else if (client && client.name) {
         clientCode = this.generateClientCode(client.name);
       } else if (proj.clientCode) {
         clientCode = proj.clientCode;
+      } else if (proj.clientName) {
+        clientCode = this.generateClientCode(proj.clientName);
       } else if (proj.name) {
         clientCode = this.generateClientCode(proj.name);
       }
     }
 
-    const items = (this._state.furniture || []).filter(f => f.projectId === projectId);
-    const existingNums = items.map(item => {
-      const c = item.productCode || item.itemCode || '';
-      const match = c.match(/(\d+)/);
-      return match ? parseInt(match[1], 10) : 0;
-    }).filter(n => n >= 100);
+    // Sequence per client across all client's projects
+    const clientProjects = (this._state.projects || []).filter(p => client && p.clientId === client.id).map(p => p.id);
+    const clientProjIds = new Set(clientProjects.length > 0 ? clientProjects : [projectId]);
+    const items = (this._state.furniture || []).filter(f => clientProjIds.has(f.projectId));
 
-    const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 101;
-    return `${clientCode} ${nextNum}`;
+    const existingNums = items.map(item => {
+      const c = (item.productCode || item.itemCode || '').trim();
+      if (!c) return 0;
+      const match = c.match(new RegExp(`^${clientCode}\\s*(\\d+)`, 'i')) || c.match(/(\d+)/);
+      return match ? parseInt(match[1], 10) : 0;
+    }).filter(n => n > 0 && n < 10000);
+
+    const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
+    return `${clientCode} ${String(nextNum).padStart(3, '0')}`;
+  },
+
+  /**
+   * Resolves or ensures a clean, compliant product code for any furniture item
+   * e.g. "GNS 001", "SRL 001", "RJB 001"
+   */
+  getItemProductCode(item) {
+    if (!item) return '';
+    const proj = (this._state.projects || []).find(p => p.id === item.projectId);
+    const client = (this._state.clients || []).find(c => c.id === (proj ? proj.clientId : null));
+    let clientCode = 'PRD';
+    if (client && (client.code || client.clientCode)) {
+      clientCode = client.code || client.clientCode;
+    } else if (client && client.name) {
+      clientCode = this.generateClientCode(client.name);
+    } else if (proj && proj.clientName) {
+      clientCode = this.generateClientCode(proj.clientName);
+    } else if (proj && proj.name) {
+      clientCode = this.generateClientCode(proj.name);
+    }
+
+    const c = (item.productCode || item.itemCode || '').trim();
+    // If it already matches ${clientCode} \d{3}, return as is
+    if (c && new RegExp(`^${clientCode}\\s*\\d{3}$`, 'i').test(c)) {
+      return c;
+    }
+    // If it has clientCode and a number, normalize padding: e.g. "GNS 1" -> "GNS 001"
+    if (c) {
+      const match = c.match(new RegExp(`^${clientCode}\\s*(\\d+)`, 'i'));
+      if (match) {
+        return `${clientCode} ${String(parseInt(match[1], 10)).padStart(3, '0')}`;
+      }
+    }
+
+    // Determine sequence among items for this client
+    const clientProjects = (this._state.projects || []).filter(p => client && p.clientId === client.id).map(p => p.id);
+    const clientProjIds = new Set(clientProjects.length > 0 ? clientProjects : [item.projectId]);
+    const clientItems = (this._state.furniture || []).filter(f => clientProjIds.has(f.projectId));
+    const idx = clientItems.findIndex(f => f.id === item.id);
+    const seq = idx >= 0 ? idx + 1 : 1;
+    return `${clientCode} ${String(seq).padStart(3, '0')}`;
+  },
+
+  /**
+   * Safely migrates existing legacy codes to CLIENTCODE 001 format without deleting items
+   */
+  _migrateProductCodes() {
+    if (!this._state || !this._state.furniture) return;
+    const clientCounters = new Map();
+
+    (this._state.furniture || []).forEach(item => {
+      const proj = (this._state.projects || []).find(p => p.id === item.projectId);
+      const client = (this._state.clients || []).find(c => c.id === (proj ? proj.clientId : null));
+      let clientCode = 'PRD';
+      if (client && (client.code || client.clientCode)) {
+        clientCode = client.code || client.clientCode;
+      } else if (client && client.name) {
+        clientCode = this.generateClientCode(client.name);
+      } else if (proj && proj.clientName) {
+        clientCode = this.generateClientCode(proj.clientName);
+      } else if (proj && proj.name) {
+        clientCode = this.generateClientCode(proj.name);
+      }
+
+      const c = (item.productCode || item.itemCode || '').trim();
+      const isLegacyMisuse = c.toUpperCase().startsWith('SRL ') && clientCode !== 'SRL';
+      const is100Series = /^\w{2,4}\s+10\d$/i.test(c);
+      const isMissing = !c;
+
+      if (isMissing || isLegacyMisuse || is100Series) {
+        const count = (clientCounters.get(clientCode) || 0) + 1;
+        clientCounters.set(clientCode, count);
+        const newCode = `${clientCode} ${String(count).padStart(3, '0')}`;
+        item.productCode = newCode;
+        item.itemCode = newCode;
+      } else {
+        const m = c.match(new RegExp(`^${clientCode}\\s*(\\d+)`, 'i'));
+        if (m) {
+          const num = parseInt(m[1], 10);
+          item.productCode = `${clientCode} ${String(num).padStart(3, '0')}`;
+          item.itemCode = item.productCode;
+        }
+      }
+    });
   },
 
   addClient(clientData) {
