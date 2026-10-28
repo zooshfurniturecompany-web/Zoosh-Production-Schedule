@@ -11,26 +11,26 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  height: calc(100vh - 140px);
+  height: calc(100vh - 118px);
 }
 
 /* Scheduler Controls Toolbar */
 .schedule-toolbar {
-  padding: 14px 20px;
+  padding: 6px 14px;
   border-bottom: 1px solid var(--border-light);
   background-color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 
 .schedule-toolbar-left,
 .schedule-toolbar-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -38,14 +38,14 @@
 .btn-group {
   display: inline-flex;
   background: var(--bg-hover);
-  padding: 3px;
+  padding: 2px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-light);
 }
 
 .btn-group-btn {
-  padding: 6px 12px;
-  font-size: 12.5px;
+  padding: 4px 9px;
+  font-size: 11.5px;
   font-weight: 500;
   border: none;
   background: transparent;
@@ -70,12 +70,12 @@
 .date-nav-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .nav-arrow-btn {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -85,6 +85,7 @@
   cursor: pointer;
   color: var(--text-secondary);
   font-weight: 600;
+  font-size: 11px;
 }
 .nav-arrow-btn:hover {
   background: var(--bg-hover);
@@ -92,27 +93,27 @@
 }
 
 .calendar-title-display {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-main);
-  min-width: 130px;
+  min-width: 110px;
   text-align: center;
 }
 
 /* Filters Bar */
 .schedule-filters-bar {
-  padding: 10px 20px;
+  padding: 5px 14px;
   border-bottom: 1px solid var(--border-light);
   background-color: var(--bg-card-subtle);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .filter-select {
-  padding: 5px 10px;
-  font-size: 12px;
+  padding: 3px 8px;
+  font-size: 11px;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
   background-color: #ffffff;
@@ -120,13 +121,13 @@
 }
 
 .search-input-box {
-  padding: 5px 12px;
-  font-size: 12px;
+  padding: 3px 8px;
+  font-size: 11px;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
   background-color: #ffffff;
   color: var(--text-main);
-  min-width: 180px;
+  min-width: 140px;
 }
 
 /* Gantt Scrollable Viewport - Single lap window (no horizontal scroll) */
@@ -157,11 +158,11 @@
 }
 
 .gantt-label-col-header {
-  width: 150px;
-  min-width: 150px;
-  max-width: 150px;
-  padding: 8px 10px;
-  font-size: 10px;
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
+  padding: 5px 8px;
+  font-size: 9.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -184,7 +185,7 @@
 .gantt-day-col {
   flex: 1;
   min-width: 0;
-  padding: 5px 1px;
+  padding: 3px 0;
   text-align: center;
   border-right: 1px solid var(--border-subtle);
   background-color: #ffffff;
@@ -202,7 +203,7 @@
 }
 
 .day-col-weekday {
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -210,10 +211,10 @@
 }
 
 .day-col-number {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text-main);
-  margin-top: 2px;
+  margin-top: 1px;
   line-height: 1;
 }
 
@@ -234,22 +235,23 @@
 
 .gantt-today-pin {
   position: absolute;
-  top: 2px;
+  top: 1px;
   transform: translateX(-50%);
   background-color: #ef4444;
   color: #ffffff;
-  font-size: 8.5px;
+  font-size: 8px;
   font-weight: 800;
-  padding: 1px 4px;
-  border-radius: 3px;
+  padding: 1px 3px;
+  border-radius: 2px;
   letter-spacing: 0.5px;
   z-index: 13;
 }
 
-/* Rows in Gantt - Compact Clean Single-Screen Row Height */
+/* Rows in Gantt - High Density for Multi-Carpenter Visibility */
 .gantt-row {
   display: flex;
-  min-height: 42px;
+  min-height: 32px;
+  height: 32px;
   border-bottom: 1px solid var(--border-subtle);
   position: relative;
   transition: background-color 0.1s;
@@ -260,10 +262,10 @@
 }
 
 .gantt-row-label {
-  width: 150px;
-  min-width: 150px;
-  max-width: 150px;
-  padding: 6px 10px;
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
+  padding: 2px 8px;
   border-right: 1px solid var(--border-light);
   background-color: #ffffff;
   position: sticky;
@@ -279,20 +281,22 @@
 }
 
 .row-label-primary {
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 700;
   color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.1;
 }
 
 .row-label-secondary {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-muted);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  line-height: 1;
   margin-top: 1px;
 }
 
@@ -302,7 +306,8 @@
   flex: 1;
   width: 100%;
   position: relative;
-  min-height: 42px;
+  min-height: 32px;
+  height: 32px;
 }
 
 .gantt-cell-bg {
@@ -323,19 +328,19 @@
 /* Real Calculated Gantt Bar - Simple & Crisp */
 .gantt-bar {
   position: absolute;
-  top: 6px;
-  height: 29px;
+  top: 3px;
+  height: 25px;
   border-radius: var(--radius-sm);
-  padding: 0 6px;
+  padding: 0 5px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 4px;
-  font-size: 10.5px;
+  gap: 3px;
+  font-size: 9.5px;
   font-weight: 600;
   cursor: pointer;
   z-index: 5;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
   border: 1px solid transparent;
   transition: transform 0.12s, box-shadow 0.12s, filter 0.12s;
   overflow: hidden;

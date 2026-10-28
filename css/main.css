@@ -307,6 +307,10 @@ body {
   scroll-behavior: smooth;
 }
 
+.view-viewport:has(.schedule-container) {
+  padding: 10px 16px;
+}
+
 /* Common View Header */
 .view-header {
   margin-bottom: 24px;

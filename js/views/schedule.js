@@ -86,21 +86,21 @@ window.Zoosh.Views.Schedule = {
 
     container.innerHTML = `
       <!-- Desktop Header (>768px) -->
-      <div class="view-header desktop-only" style="margin-bottom: 16px;">
+      <div class="view-header desktop-only" style="margin-bottom: 8px;">
         <div>
-          <h2 class="view-header-title">Production Schedule</h2>
-          <div class="view-header-subtitle">Real-time factory timeline &amp; forward process sequencing &bull; Today: <strong>${calendar.formatDisplayDate(todayStr, true, true)}</strong></div>
+          <h2 class="view-header-title" style="font-size: 18px; margin-bottom: 2px;">Production Schedule</h2>
+          <div class="view-header-subtitle" style="font-size: 11px;">Real-time factory timeline &bull; Today: <strong>${calendar.formatDisplayDate(todayStr, true, true)}</strong></div>
         </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <button class="btn btn-secondary" onclick="window.Zoosh.Views.Overview.openRemindersModal()" title="View and add schedule reminders">
-            🔔 Reminders ${(state.reminders || []).length > 0 ? `<span class="badge badge-primary" style="font-size: 10px; padding: 2px 6px; margin-left: 4px;">${(state.reminders || []).filter(r => r.status !== 'DONE').length}</span>` : ''}
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 11px;" onclick="window.Zoosh.Views.Overview.openRemindersModal()" title="View and add schedule reminders">
+            🔔 Reminders ${(state.reminders || []).length > 0 ? `<span class="badge badge-primary" style="font-size: 9.5px; padding: 1px 5px; margin-left: 3px;">${(state.reminders || []).filter(r => r.status !== 'DONE').length}</span>` : ''}
           </button>
           ${canCreate ? `
-            <button class="btn btn-primary" onclick="window.Zoosh.AddFurnitureWizard.open()">
+            <button class="btn btn-primary btn-sm" style="padding: 4px 10px; font-size: 11px;" onclick="window.Zoosh.AddFurnitureWizard.open()">
               <span>+</span> Add Furniture
             </button>
           ` : `
-            <span class="badge badge-upholstery" style="align-self: center;">
+            <span class="badge badge-upholstery" style="align-self: center; font-size: 10px;">
               👁️ Visitor Read-Only Mode
             </span>
           `}
