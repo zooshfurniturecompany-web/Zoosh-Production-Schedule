@@ -10,11 +10,17 @@ window.Zoosh = window.Zoosh || {};
 window.Zoosh.Views = window.Zoosh.Views || {};
 
 window.Zoosh.Views.Schedule = {
-  viewMode: 'today',       // 'people' | 'department' | 'project' | 'today'
-  zoomMode: 'today',       // 'today' | 'week' | 'month'
-  currentYear: 2026,
-  currentMonth: 8,         // 0-indexed (8 = September)
-  centerDateStr: '2026-09-28',
+  viewMode: 'people',      // 'people' | 'department' | 'project' | 'today'
+  zoomMode: 'month',       // 'today' | 'week' | 'month'
+  currentYear: new Date().getFullYear(),
+  currentMonth: new Date().getMonth(), // 0-indexed (9 = October)
+  centerDateStr: (() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  })(),
 
   // Filters
   filterClient: 'ALL',
@@ -25,26 +31,27 @@ window.Zoosh.Views.Schedule = {
   searchQuery: '',
 
   getTodayDateStr() {
-    const state = window.Zoosh.State && window.Zoosh.State.getState();
-    const config = window.Zoosh.Config;
-    return (state && state.currentDate) || (config && config.CURRENT_DATE) || '2026-09-28';
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   },
 
   /**
    * Called whenever the Production Schedule page is newly opened.
-   * Automatically displays the current date, navigates calendar to today,
-   * and sets the default view to today's production schedule.
+   * Automatically displays the current date, navigates calendar to today's live month,
+   * and sets the view to this month's production schedule.
    */
   onOpen() {
-    const todayStr = this.getTodayDateStr();
-    const parts = todayStr.split('-');
-    this.currentYear = parseInt(parts[0], 10);
-    this.currentMonth = parseInt(parts[1], 10) - 1;
-    this.centerDateStr = todayStr;
+    const now = new Date();
+    this.currentYear = now.getFullYear();
+    this.currentMonth = now.getMonth();
+    this.centerDateStr = this.getTodayDateStr();
 
-    // Default view: today's production schedule
-    this.zoomMode = 'today';
-    this.viewMode = 'today';
+    // Default view: this month's live production schedule
+    this.viewMode = 'people';
+    this.zoomMode = 'month';
     this.filterClient = 'ALL';
     this.filterProject = 'ALL';
     this.filterDepartment = 'ALL';

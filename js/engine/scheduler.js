@@ -32,12 +32,13 @@ window.Zoosh.Scheduler = {
     const config = window.Zoosh.Config;
     const currentDate = cloned.currentDate || config.CURRENT_DATE;
 
-    // Ensure synchronized furniture / srls aliases
-    if (!cloned.srls && cloned.furniture) {
-      cloned.srls = cloned.furniture;
-    } else if (!cloned.furniture && cloned.srls) {
-      cloned.furniture = cloned.srls;
-    }
+    // Ensure synchronized furniture / srls aliases across both legacy and modern collections
+    const furnMap = new Map();
+    (cloned.srls || []).forEach(f => { if (f && f.id) furnMap.set(f.id, f); });
+    (cloned.furniture || []).forEach(f => { if (f && f.id) furnMap.set(f.id, f); });
+    const allFurniture = Array.from(furnMap.values());
+    cloned.furniture = allFurniture;
+    cloned.srls = allFurniture;
 
     // 1. Build lookup tables
     const employeesMap = new Map((cloned.employees || []).map(e => [e.id, e]));
@@ -119,11 +120,9 @@ window.Zoosh.Scheduler = {
           const overlaps = !(trialSpan.endDateStr < other.startDateStr || trialSpan.startDateStr > other.endDateStr);
           if (overlaps) {
             conflictFound = true;
-            // Advance candidateStartStr to immediately after other assignment finishes
+            // Advance candidateStartStr to the next working day after other assignment finishes
             let nextAvailable = calendar.parseDate(other.endDateStr);
-            if (other.endHour >= 17) {
-              nextAvailable.setDate(nextAvailable.getDate() + 1);
-            }
+            nextAvailable.setDate(nextAvailable.getDate() + 1);
             while (calendar.isSunday(nextAvailable)) {
               nextAvailable.setDate(nextAvailable.getDate() + 1);
             }

@@ -14,8 +14,14 @@ window.Zoosh.Config = {
   SUPABASE_URL: 'https://playozyzrndsjiayvpwx.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYXlvenl6cm5kc2ppYXl2cHd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1Nzg4MzgsImV4cCI6MjEwNjE1NDgzOH0.t5YUHklTi1SirpcWk15HOl03jw6rt9PhvOH9r468ZfU',
   
-  // Base factory calendar settings
-  CURRENT_DATE: '2026-09-28', // Monday, 28 September 2026
+  // Base factory calendar settings (defaults dynamically to today's live date)
+  CURRENT_DATE: (() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  })(),
   STANDARD_WORK_HOURS_PER_DAY: 8,
   WORK_DAY_START_HOUR: 9,   // 09:00 AM
   WORK_DAY_END_HOUR: 17,    // 05:00 PM
