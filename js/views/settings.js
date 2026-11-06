@@ -106,7 +106,7 @@ window.Zoosh.Views.Settings = {
                   <td style="text-align: center; color: #059669; font-weight: 700;">✅ Full</td>
                 </tr>
                 <tr style="border-bottom: 1px solid var(--border-light);">
-                  <td style="padding: 8px 0;">Client / SRL Management</td>
+                  <td style="padding: 8px 0;">Client Management</td>
                   <td style="text-align: center; color: #059669; font-weight: 700;">✅ Full</td>
                   <td style="text-align: center; color: #dc2626; font-weight: 700;">❌ Blocked</td>
                 </tr>
@@ -237,7 +237,7 @@ window.Zoosh.Views.Settings = {
                   🔄 Reset Demo Data
                 </div>
                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 14px; min-height: 48px;">
-                  Reloads the realistic Zoosh demo factory dataset (Clients SRL 101, 102, 103, villa projects, craftspeople, and schedule). User accounts remain intact.
+                  Reloads the realistic Zoosh demo factory dataset (Clients, villa projects, craftspeople, and schedule). User accounts remain intact.
                 </div>
                 <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Settings.confirmResetDemo()">
                   Reset to Demo State
@@ -435,12 +435,12 @@ window.Zoosh.Views.Settings = {
       return;
     }
     window.Zoosh.State.startFresh();
-    alert('Factory reset to clean state. Ready for first Client / SRL.');
+    alert('Factory reset to clean state. Ready for first Client & Project.');
     if (window.Zoosh.App) window.Zoosh.App.navigateTo('projects');
   },
 
   confirmResetDemo() {
-    if (!confirm('Reset to Demo Data?\n\nThis will restore the standard Zoosh demo dataset (Clients SRL 101, 102, 103, Projects, and Furniture items). User accounts will remain intact.\n\nProceed?')) {
+    if (!confirm('Reset to Demo Data?\n\nThis will restore the standard Zoosh demo dataset (Clients, Projects, and Furniture items). User accounts will remain intact.\n\nProceed?')) {
       return;
     }
     window.Zoosh.State.resetDemoData();

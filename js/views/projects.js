@@ -31,7 +31,7 @@ window.Zoosh.Views.Projects = {
       this.renderProjectDetail(container, this.activeProjectId);
     } else {
       if (window.Zoosh.App) {
-        window.Zoosh.App.updateMobileHeader(this.activeTab === 'clients' ? 'Clients / SRL' : 'Projects', false);
+        window.Zoosh.App.updateMobileHeader(this.activeTab === 'clients' ? 'Clients Directory' : 'Projects', false);
       }
       this.renderMainView(container);
     }
@@ -45,7 +45,7 @@ window.Zoosh.Views.Projects = {
       <div class="view-header">
         <div>
           <h2 class="view-header-title">Clients &amp; Projects</h2>
-          <div class="view-header-subtitle">Client SRL identifiers, project commitments, and production orders</div>
+          <div class="view-header-subtitle">Client directory, project commitments, and production orders</div>
         </div>
         <div style="display: flex; gap: 10px;">
           ${canCreate ? `
@@ -72,7 +72,7 @@ window.Zoosh.Views.Projects = {
           class="btn ${this.activeTab === 'clients' ? 'btn-primary' : 'btn-secondary'} btn-sm"
           onclick="window.Zoosh.Views.Projects.switchTab('clients')"
         >
-          🏷️ Clients / SRL Directory
+          🏷️ Clients Directory
         </button>
       </div>
 
@@ -99,10 +99,10 @@ window.Zoosh.Views.Projects = {
       const q = this.searchQuery.toLowerCase();
       projects = projects.filter(p => {
         const client = clientsMap.get(p.clientId);
-        const srlMatch = client && String(client.srl).includes(q);
+        const codeMatch = client && ((client.code && client.code.toLowerCase().includes(q)) || (client.clientCode && client.clientCode.toLowerCase().includes(q)));
         const clientMatch = (client && client.name.toLowerCase().includes(q)) || (p.clientName && p.clientName.toLowerCase().includes(q));
-        const projMatch = p.name.toLowerCase().includes(q) || p.location.toLowerCase().includes(q);
-        return srlMatch || clientMatch || projMatch;
+        const projMatch = p.name.toLowerCase().includes(q) || (p.location && p.location.toLowerCase().includes(q));
+        return codeMatch || clientMatch || projMatch;
       });
     }
 
@@ -114,7 +114,7 @@ window.Zoosh.Views.Projects = {
     return `
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 12px; flex-wrap: wrap;">
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-          <input type="text" class="search-input-box" placeholder="🔍 Search projects, clients, or SRL..." 
+          <input type="text" class="search-input-box" placeholder="🔍 Search projects, clients, or codes..." 
             value="${this.searchQuery}" 
             oninput="window.Zoosh.Views.Projects.searchQuery = this.value; window.Zoosh.Views.Projects.render(document.getElementById('view-container'))" />
 
@@ -332,7 +332,7 @@ window.Zoosh.Views.Projects = {
                     <tr>
                       <td>
                         <span class="badge badge-primary" style="font-size: 13px; padding: 4px 10px; font-family: var(--font-mono); font-weight: 700;">
-                          ${c.code || c.clientCode || (c.srl ? 'SRL ' + c.srl : '—')}
+                          ${c.code || c.clientCode || (window.Zoosh.State ? window.Zoosh.State.generateClientCode(c.name) : 'CL')}
                         </span>
                       </td>
                       <td style="font-weight: 700; color: var(--text-main); font-size: 14px;">
@@ -458,7 +458,7 @@ window.Zoosh.Views.Projects = {
                 ${project.name}
               </h2>
               <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
-                Client: <strong>${clientName} (SRL ${client ? client.srl : (project.clientSrl || '—')})</strong> &bull; Location: <strong>${project.location}</strong>
+                Client: <strong>${clientName}</strong>${clientCode ? ` (${clientCode})` : ''} &bull; Location: <strong>${project.location}</strong>
               </div>
               ${project.notes ? `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px; font-style: italic;">"${project.notes}"</div>` : ''}
             </div>
@@ -1055,7 +1055,7 @@ window.Zoosh.Views.Projects = {
             <select id="new-proj-client-id" class="form-input">
               ${clients.map(c => `
                 <option value="${c.id}" ${c.id === preselectedClientId ? 'selected' : ''}>
-                  ${c.code || c.clientCode || (c.srl ? 'SRL ' + c.srl : '')} — ${c.name} (${c.location || 'Site'})
+                  ${c.code || c.clientCode || (window.Zoosh.State ? window.Zoosh.State.generateClientCode(c.name) : 'CL')} — ${c.name} (${c.location || 'Site'})
                 </option>
               `).join('')}
             </select>
@@ -1289,7 +1289,7 @@ window.Zoosh.Views.Projects = {
     const client = (state.clients || []).find(c => c.id === clientId);
     if (!client) return;
 
-    const clientCode = client.code || client.clientCode || (client.srl ? `SRL ${client.srl}` : '');
+    const clientCode = client.code || client.clientCode || (window.Zoosh.State ? window.Zoosh.State.generateClientCode(client.name) : '');
 
     const bodyHtml = `
       <div id="edit-client-error" style="display: none; padding: 8px 12px; border-radius: 6px; background: #fef2f2; color: #991b1b; font-size: 12.5px; margin-bottom: 12px;"></div>

@@ -17,14 +17,20 @@
 
   <!-- Authenticated Application Shell -->
   <div id="app">
-    <!-- Sidebar Navigation -->
-    <aside class="app-sidebar">
+    <!-- Backdrop for Collapsible Overlay Sidebar -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop" onclick="window.Zoosh.App.toggleSidebar(false)"></div>
+
+    <!-- Sidebar Navigation (Drawer Overlay, Collapsed by Default) -->
+    <aside class="app-sidebar" id="app-sidebar">
       <div class="brand-header">
         <div class="brand-icon">Z</div>
         <div class="brand-text">
           <h1>Zoosh Production</h1>
           <span>Factory Control Room</span>
         </div>
+        <button class="sidebar-close-btn" onclick="window.Zoosh.App.toggleSidebar(false)" title="Close Navigation Menu" aria-label="Close sidebar">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
       </div>
 
       <ul class="nav-links">
@@ -137,6 +143,13 @@
       <!-- Mobile Compact Topbar (<768px) -->
       <header class="mobile-topbar" id="mobile-topbar-el">
         <div class="mobile-topbar-left">
+          <button id="mobile-sidebar-toggle-btn" class="hamburger-btn mobile-hamburger-btn" onclick="window.Zoosh.App.toggleSidebar()" title="Navigation Menu" aria-label="Toggle navigation menu">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
           <button id="mobile-back-btn" class="mobile-back-btn" style="display: none;" onclick="window.Zoosh.App.handleMobileBack()">
             &larr;
           </button>
@@ -157,6 +170,18 @@
       <!-- Desktop Top Control Bar (>768px) -->
       <header class="control-topbar desktop-only">
         <div class="topbar-left">
+          <!-- 3-Line Hamburger Menu Icon (☰) to Toggle Sidebar Overlay -->
+          <button id="sidebar-toggle-btn" class="hamburger-btn" onclick="window.Zoosh.App.toggleSidebar()" title="Toggle Navigation Menu (Full Screen Workspace)" aria-label="Toggle navigation menu">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <div class="topbar-brand-title">
+            <span class="brand-pill">Z</span>
+            <span class="brand-name">Zoosh Production</span>
+          </div>
           <div class="date-badge" id="topbar-date-badge">
             <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
             <span id="topbar-last-updated-text">Last updated on: 02 September 2026, 07:45 pm</span>
@@ -242,6 +267,9 @@
   <div id="modal-backdrop" class="modal-backdrop">
     <div id="modal-container" class="modal-dialog"></div>
   </div>
+
+  <!-- Global High-Visibility Floating Gantt Bar Tooltip -->
+  <div id="zoosh-gantt-floating-tooltip" class="zoosh-gantt-floating-tooltip" style="display: none;"></div>
 
   <!-- Supabase JS Client (for real-time multi-user sync) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

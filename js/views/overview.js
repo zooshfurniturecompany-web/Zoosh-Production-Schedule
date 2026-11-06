@@ -184,7 +184,7 @@ window.Zoosh.Views.Overview = {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
           <div onclick="window.Zoosh.App.navigateTo('projects')" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px 14px; box-shadow: var(--shadow-sm); cursor: pointer;">
             <div style="font-size: 20px; margin-bottom: 4px;">📁</div>
-            <div style="font-weight: 700; font-size: 13.5px; color: var(--text-main);">Projects &amp; SRL</div>
+            <div style="font-weight: 700; font-size: 13.5px; color: var(--text-main);">Clients &amp; Projects</div>
             <div style="font-size: 11px; color: var(--text-muted);">${totalProjectsData.total} orders (${totalProjectsData.active} active)</div>
           </div>
           <div onclick="window.Zoosh.App.navigateTo('schedule')" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px 14px; box-shadow: var(--shadow-sm); cursor: pointer;">
@@ -317,7 +317,7 @@ window.Zoosh.Views.Overview = {
               ${t.productCode ? `<span style="font-family: var(--font-mono); font-size: 11px; background: #e2e8f0; padding: 1px 5px; border-radius: 3px; margin-right: 4px;">${t.productCode}</span>` : ''}${t.furnitureName}
             </div>
             <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
-              <strong style="color: var(--text-secondary);">SRL ${t.clientSrl}</strong> &bull; ${t.clientName}
+              <strong style="color: var(--text-secondary);">${t.clientCode || (window.Zoosh.State ? window.Zoosh.State.generateClientCode(t.clientName) : '')}</strong>${t.clientName ? ` &bull; ${t.clientName}` : ''}
             </div>
           </div>
           <span class="badge badge-${t.department.toLowerCase()}" style="font-size: 9.5px; padding: 2px 6px;">

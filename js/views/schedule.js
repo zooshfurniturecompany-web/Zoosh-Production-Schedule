@@ -99,7 +99,7 @@ window.Zoosh.Views.Schedule = {
           <div class="toolbar-divider"></div>
 
           <!-- Search Box -->
-          <input type="text" class="search-input-box" placeholder="🔍 Search Client, SRL, Furniture..." 
+          <input type="text" class="search-input-box" placeholder="🔍 Search Client, Code, Product..." 
             value="${this.searchQuery}" 
             oninput="window.Zoosh.Views.Schedule.searchQuery = this.value; window.Zoosh.Views.Schedule.refreshGantt()" />
 
@@ -161,10 +161,13 @@ window.Zoosh.Views.Schedule = {
 
     return `
       <select class="filter-select" onchange="window.Zoosh.Views.Schedule.filterClient = this.value; window.Zoosh.Views.Schedule.refreshGantt()">
-        <option value="ALL">All Clients / SRL</option>
-        ${(state.clients || []).map(c => `
-          <option value="${c.id}" ${this.filterClient === c.id ? 'selected' : ''}>SRL ${c.srl} — ${c.name}</option>
-        `).join('')}
+        <option value="ALL">All Clients</option>
+        ${(state.clients || []).map(c => {
+          const code = c.code || c.clientCode || (window.Zoosh.State && window.Zoosh.State.generateClientCode ? window.Zoosh.State.generateClientCode(c.name) : 'CL');
+          return `
+            <option value="${c.id}" ${this.filterClient === c.id ? 'selected' : ''}>${code} &mdash; ${c.name}</option>
+          `;
+        }).join('')}
       </select>
 
       <select class="filter-select" onchange="window.Zoosh.Views.Schedule.filterProject = this.value; window.Zoosh.Views.Schedule.refreshGantt()">
@@ -374,9 +377,6 @@ window.Zoosh.Views.Schedule = {
               <div class="gantt-row">
                 <div class="gantt-row-label">
                   <div class="row-label-primary">${emp.name}</div>
-                  <div class="row-label-secondary">
-                    <span class="badge badge-${emp.department.toLowerCase()}">${emp.department}</span>
-                  </div>
                 </div>
                 <div class="gantt-row-track" style="width: ${totalWidth}px;">
                   ${hours.slice(0, -1).map(() => `
@@ -392,13 +392,14 @@ window.Zoosh.Views.Schedule = {
                     const endH = seg.endHour || 17;
                     const leftPx = (startH - 9) * hourColWidth;
                     const widthPx = Math.max(30, (endH - startH) * hourColWidth - 4);
-                    const srlLabel = task.clientSrl ? `SRL ${task.clientSrl}` : (task.srlNumber ? `SRL ${task.srlNumber}` : '');
+                    const client = (state.clients || []).find(c => c.id === task.clientId);
+                    const codeLabel = task.productCode || (client ? (client.code || client.clientCode) : '');
 
                     return `
                       <div class="gantt-bar gantt-bar-${task.department.toLowerCase()} ${task.hasLeaveConflict ? 'conflict' : ''}" 
                         style="left: ${leftPx}px; width: ${widthPx}px;"
                         onclick="window.Zoosh.Views.Schedule.inspectProcess('${task.processId}')">
-                        <span class="bar-title">${srlLabel ? srlLabel + ' &bull; ' : ''}${task.furnitureName}</span>
+                        <span class="bar-title">${codeLabel ? codeLabel + ' &bull; ' : ''}${task.furnitureName}</span>
                         <span class="bar-duration-badge">${task.hoursToday}h</span>
                       </div>
                     `;
@@ -413,6 +414,7 @@ window.Zoosh.Views.Schedule = {
   },
 
   getGanttRows(state) {
+    state = state || window.Zoosh.State.getState();
     const processes = state.processes || [];
     const srlsMap = new Map((state.furniture || state.srls || []).map(s => [s.id, s]));
     const projectsMap = new Map((state.projects || []).map(p => [p.id, p]));
@@ -433,11 +435,22 @@ window.Zoosh.Views.Schedule = {
 
       if (this.searchQuery.trim()) {
         const q = this.searchQuery.toLowerCase();
-        const clientMatch = client && (String(client.srl).includes(q) || client.name.toLowerCase().includes(q));
-        const srlMatch = srl && ((srl.name || srl.furnitureName || '').toLowerCase().includes(q));
-        const empMatch = emp && emp.name.toLowerCase().includes(q);
-        const projMatch = proj && proj.name.toLowerCase().includes(q);
-        if (!clientMatch && !srlMatch && !empMatch && !projMatch) return false;
+        const clientCode = client ? (client.code || client.clientCode || '').toLowerCase() : '';
+        const clientName = client ? client.name.toLowerCase() : '';
+        const prodCode = srl ? (srl.productCode || srl.itemCode || '').toLowerCase() : '';
+        const itemNameLower = srl ? (srl.name || srl.furnitureName || '').toLowerCase() : '';
+        const empName = emp ? emp.name.toLowerCase() : '';
+        const projName = proj ? proj.name.toLowerCase() : '';
+        const deptName = proc.department ? proc.department.toLowerCase() : '';
+
+        const matches = clientCode.includes(q) || 
+                        clientName.includes(q) || 
+                        prodCode.includes(q) || 
+                        itemNameLower.includes(q) || 
+                        empName.includes(q) || 
+                        projName.includes(q) ||
+                        deptName.includes(q);
+        if (!matches) return false;
       }
       return true;
     });
@@ -446,7 +459,7 @@ window.Zoosh.Views.Schedule = {
       return (state.employees || []).filter(e => e.active).map(emp => ({
         id: emp.id,
         primaryLabel: emp.name,
-        secondaryLabel: emp.department,
+        secondaryLabel: emp.department, // Department section badge
         badgeType: emp.department.toLowerCase(),
         processes: filteredProcesses.filter(p => p.employeeId === emp.id)
       }));
@@ -464,13 +477,13 @@ window.Zoosh.Views.Schedule = {
         const projItems = (state.furniture || state.srls || []).filter(s => s.projectId === proj.id);
         const projProcs = filteredProcesses.filter(p => p.projectId === proj.id);
         const client = clientsMap.get(proj.clientId);
-        const clientSrl = client ? client.srl : (proj.clientSrl || '—');
+        const clientCode = client ? (client.code || client.clientCode || (window.Zoosh.State ? window.Zoosh.State.generateClientCode(client.name) : '')) : '';
         const clientName = client ? client.name : (proj.clientName || 'Client');
 
         return {
           id: proj.id,
           primaryLabel: proj.name,
-          secondaryLabel: `${clientName} &bull; SRL ${clientSrl} &bull; ${projItems.length} Items`,
+          secondaryLabel: `${clientName}${clientCode ? ` &bull; ${clientCode}` : ''} &bull; ${projItems.length} Items`,
           badgeType: '',
           processes: projProcs
         };
@@ -494,8 +507,12 @@ window.Zoosh.Views.Schedule = {
     return `
       <div class="gantt-row">
         <div class="gantt-row-label dept-accent-${row.badgeType || 'carpentry'}">
-          <div class="artisan-name">${row.primaryLabel}</div>
-          <div class="mini-dept-tag dept-tag-${row.badgeType || 'carpentry'}">${row.secondaryLabel}</div>
+          <div class="artisan-name-row">
+            <span class="artisan-name" title="${row.primaryLabel}">${row.primaryLabel}</span>
+            ${row.secondaryLabel ? `
+              <span class="mini-dept-tag dept-tag-${row.badgeType || 'carpentry'}">${row.secondaryLabel}</span>
+            ` : ''}
+          </div>
         </div>
 
         <div class="gantt-row-track">
@@ -507,7 +524,7 @@ window.Zoosh.Views.Schedule = {
             const srl = srlsMap.get(proc.furnitureId || proc.srlId);
             const proj = srl ? projectsMap.get(srl.projectId) : null;
             const client = proj ? clientsMap.get(proj.clientId) : null;
-            const clientSrl = client ? client.srl : (proj ? proj.clientSrl : '—');
+            const clientCode = client ? (client.code || client.clientCode || (window.Zoosh.State ? window.Zoosh.State.generateClientCode(client.name) : '')) : '';
             const clientName = client ? client.name : (proj ? proj.clientName : 'Client');
             const emp = employeesMap.get(proc.employeeId);
             const itemName = srl ? (srl.name || srl.furnitureName) : 'Furniture';
@@ -537,9 +554,26 @@ window.Zoosh.Views.Schedule = {
             const leftPct = (clampedStart / numDays) * 100;
             const widthPct = (spanDays / numDays) * 100;
 
+            const safeItemName = (itemName || 'Furniture').replace(/"/g, '&quot;');
+            const safeClientName = (clientName || 'Client').replace(/"/g, '&quot;');
+            const datesFormatted = `${calendar.formatDisplayDate(proc.calculatedStartDate, false, false)} &rarr; ${calendar.formatDisplayDate(proc.calculatedEndDate, false, false)}`;
+            const durationFormatted = `${proc.durationDays} working days (${(parseFloat(proc.durationDays) || 1) * 8}h)`;
+
             return `
               <div class="gantt-bar gantt-bar-${proc.department.toLowerCase()} ${proc.hasLeaveConflict || proc.hasOverlapConflict ? 'conflict' : ''}" 
                 style="left: calc(${leftPct}% + 1px); width: calc(${widthPct}% - 2px); min-width: 14px;"
+                data-product-code="${productCode}"
+                data-item-name="${safeItemName}"
+                data-client-name="${safeClientName}"
+                data-client-code="${clientCode}"
+                data-department="${proc.department}"
+                data-artisan="${emp ? emp.name : 'Unassigned'}"
+                data-dates="${datesFormatted}"
+                data-duration="${durationFormatted}"
+                data-leave-conflict="${proc.hasLeaveConflict ? 'true' : 'false'}"
+                data-overlap-conflict="${proc.hasOverlapConflict ? 'true' : 'false'}"
+                onmouseenter="window.Zoosh.Views.Schedule.showBarTooltip(event, this)"
+                onmouseleave="window.Zoosh.Views.Schedule.hideBarTooltip()"
                 onclick="window.Zoosh.Views.Schedule.inspectProcess('${proc.id}')">
                 
                 <span class="bar-title">
@@ -555,20 +589,6 @@ window.Zoosh.Views.Schedule = {
                 <span class="bar-duration-badge">
                   ${proc.durationDays}d
                 </span>
-
-                <!-- Hover Tooltip -->
-                <div class="gantt-tooltip">
-                  <div style="font-weight: 700; margin-bottom: 2px;">
-                    ${productCode ? `<strong style="color: #38bdf8;">${productCode}</strong> &mdash; ` : ''}${itemName} &bull; Client: ${clientName} (SRL ${clientSrl})
-                  </div>
-                  <div style="color: #94a3b8; font-size: 11px;">Stage: ${proc.department} &bull; Artisan: ${emp ? emp.name : 'Unassigned'}</div>
-                  <div style="margin-top: 4px; font-family: var(--font-mono); font-size: 11px;">
-                    ${calendar.formatDisplayDate(proc.calculatedStartDate, false, false)} &rarr; ${calendar.formatDisplayDate(proc.calculatedEndDate, false, false)}
-                  </div>
-                  <div style="font-size: 11px; margin-top: 2px;">Duration: ${proc.durationDays} working days (${(parseFloat(proc.durationDays) || 1) * 8}h)</div>
-                  ${proc.hasLeaveConflict ? '<div style="color: #f97316; font-weight: 700; margin-top: 4px;">⚠️ Artisan has approved leave! Click to reallocate.</div>' : ''}
-                  ${proc.hasOverlapConflict ? '<div style="color: #ef4444; font-weight: 700; margin-top: 4px;">⚠️ Overlapping project conflict! Multiple projects on this date.</div>' : ''}
-                </div>
               </div>
             `;
           }).join('')}
@@ -635,7 +655,7 @@ window.Zoosh.Views.Schedule = {
     const emp = (state.employees || []).find(e => e.id === proc.employeeId);
     const project = (state.projects || []).find(p => p.id === proc.projectId);
     const client = project ? (state.clients || []).find(c => c.id === project.clientId) : null;
-    const clientSrl = client ? client.srl : (project ? project.clientSrl : '—');
+    const clientCode = client ? (client.code || client.clientCode || (window.Zoosh.State ? window.Zoosh.State.generateClientCode(client.name) : '')) : (project ? project.clientCode : '');
     const clientName = client ? client.name : (project ? project.clientName : 'Client');
     const itemName = srl ? (srl.name || srl.furnitureName) : 'Furniture Item';
     const auth = window.Zoosh.Auth;
@@ -649,7 +669,7 @@ window.Zoosh.Views.Schedule = {
             ${itemName}
           </div>
           <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-            Client: <strong>${clientName}</strong> (SRL ${clientSrl}) &bull; Project: <strong>${project ? project.name : '—'}</strong>
+            Client: <strong>${clientName}</strong>${clientCode ? ` (${clientCode})` : ''} &bull; Project: <strong>${project ? project.name : '—'}</strong>
           </div>
         </div>
 
@@ -794,6 +814,93 @@ window.Zoosh.Views.Schedule = {
     window.Zoosh.Modal.close();
     if (window.Zoosh.App) {
       window.Zoosh.App.showToast('Schedule & production progress recalculated.');
+    }
+  },
+
+  // Floating Portal Tooltip for Gantt Bars
+  showBarTooltip(e, barEl) {
+    let tooltip = document.getElementById('zoosh-gantt-floating-tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.id = 'zoosh-gantt-floating-tooltip';
+      tooltip.className = 'zoosh-gantt-floating-tooltip';
+      document.body.appendChild(tooltip);
+    }
+
+    const prodCode = barEl.getAttribute('data-product-code') || '';
+    const itemName = barEl.getAttribute('data-item-name') || '';
+    const clientName = barEl.getAttribute('data-client-name') || '';
+    const clientCode = barEl.getAttribute('data-client-code') || '';
+    const dept = barEl.getAttribute('data-department') || '';
+    const artisan = barEl.getAttribute('data-artisan') || '';
+    const dates = barEl.getAttribute('data-dates') || '';
+    const duration = barEl.getAttribute('data-duration') || '';
+    const leaveConflict = barEl.getAttribute('data-leave-conflict') === 'true';
+    const overlapConflict = barEl.getAttribute('data-overlap-conflict') === 'true';
+
+    tooltip.innerHTML = `
+      <div class="tooltip-header-row">
+        ${prodCode ? `<span class="tooltip-code-pill">${prodCode}</span>` : ''}
+        <span class="tooltip-item-title">${itemName}</span>
+      </div>
+      <div class="tooltip-details-row">
+        <span>Client: <strong>${clientName}</strong>${clientCode ? ` (${clientCode})` : ''}</span>
+        <span class="tooltip-dot">&bull;</span>
+        <span>Stage: <strong class="tooltip-dept-name dept-text-${dept.toLowerCase()}">${dept}</strong></span>
+      </div>
+      <div class="tooltip-meta-grid">
+        <div class="tooltip-meta-item">
+          <span class="tooltip-meta-label">Artisan:</span>
+          <span class="tooltip-meta-val">👤 ${artisan}</span>
+        </div>
+        <div class="tooltip-meta-item">
+          <span class="tooltip-meta-label">Schedule:</span>
+          <span class="tooltip-meta-val">📅 ${dates}</span>
+        </div>
+        <div class="tooltip-meta-item">
+          <span class="tooltip-meta-label">Duration:</span>
+          <span class="tooltip-meta-val">⏱️ ${duration}</span>
+        </div>
+      </div>
+      ${leaveConflict ? '<div class="tooltip-conflict-alert alert-leave">⚠️ Artisan has approved leave during this stage!</div>' : ''}
+      ${overlapConflict ? '<div class="tooltip-conflict-alert alert-overlap">⚠️ Multiple project overlap for this artisan on this date!</div>' : ''}
+    `;
+
+    tooltip.style.display = 'block';
+    this.positionBarTooltip(barEl, tooltip);
+  },
+
+  positionBarTooltip(barEl, tooltip) {
+    if (!tooltip || !barEl) return;
+    const barRect = barEl.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+
+    let top = barRect.top - tooltipRect.height - 10;
+    let left = barRect.left + (barRect.width / 2) - (tooltipRect.width / 2);
+
+    // If too close to top edge, flip to below bar
+    if (top < 10) {
+      top = barRect.bottom + 10;
+    }
+
+    // Keep within horizontal screen bounds
+    const screenPadding = 12;
+    if (left < screenPadding) {
+      left = screenPadding;
+    } else if (left + tooltipRect.width > window.innerWidth - screenPadding) {
+      left = window.innerWidth - tooltipRect.width - screenPadding;
+    }
+
+    tooltip.style.top = `${Math.round(top)}px`;
+    tooltip.style.left = `${Math.round(left)}px`;
+    tooltip.classList.add('visible');
+  },
+
+  hideBarTooltip() {
+    const tooltip = document.getElementById('zoosh-gantt-floating-tooltip');
+    if (tooltip) {
+      tooltip.classList.remove('visible');
+      tooltip.style.display = 'none';
     }
   }
 };

@@ -121,10 +121,11 @@ window.Zoosh.AddFurnitureWizard = {
           <select id="wizard-proj-select" class="form-input" onchange="window.Zoosh.AddFurnitureWizard.onProjectChange(this.value)">
             ${projects.map(p => {
               const cl = clientsMap.get(p.clientId);
-              const srlLabel = cl ? `[SRL ${cl.srl} &bull; ${cl.name}]` : (p.clientSrl ? `[SRL ${p.clientSrl}]` : '');
+              const clCode = cl ? (cl.code || cl.clientCode || (window.Zoosh.State ? window.Zoosh.State.generateClientCode(cl.name) : '')) : (p.clientCode || '');
+              const clientLabel = cl ? `[${clCode ? clCode + ' &bull; ' : ''}${cl.name}]` : (p.clientName ? `[${p.clientName}]` : '');
               return `
                 <option value="${p.id}" ${p.id === this.wizardData.projectId ? 'selected' : ''}>
-                  ${p.name} ${srlLabel} &mdash; ${p.location}
+                  ${p.name} ${clientLabel} &mdash; ${p.location}
                 </option>
               `;
             }).join('')}
@@ -134,9 +135,9 @@ window.Zoosh.AddFurnitureWizard = {
         ${selectedProj ? `
           <div style="background: var(--bg-surface-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 18px; font-size: 12.5px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <span style="color: var(--text-muted);">Client / SRL:</span>
+              <span style="color: var(--text-muted);">Client:</span>
               <strong style="color: var(--primary-color);">
-                ${selectedClient ? `${selectedClient.name} (SRL ${selectedClient.srl})` : (selectedProj.clientName ? `${selectedProj.clientName} (SRL ${selectedProj.clientSrl || '—'})` : '—')}
+                ${selectedClient ? `${selectedClient.name}${selectedClient.code || selectedClient.clientCode ? ` (${selectedClient.code || selectedClient.clientCode})` : ''}` : (selectedProj.clientName || '—')}
               </strong>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -366,8 +367,8 @@ window.Zoosh.AddFurnitureWizard = {
             Production Intake Summary
           </div>
           <div style="display: grid; grid-template-columns: 100px 1fr; gap: 6px; margin-bottom: 4px;">
-            <span style="color: var(--text-muted);">Client / SRL:</span>
-            <strong>${client ? `${client.name} (SRL ${client.srl})` : (project ? `${project.clientName} (SRL ${project.clientSrl})` : '—')}</strong>
+            <span style="color: var(--text-muted);">Client:</span>
+            <strong>${client ? `${client.name}${client.code || client.clientCode ? ` (${client.code || client.clientCode})` : ''}` : (project ? project.clientName : '—')}</strong>
           </div>
           <div style="display: grid; grid-template-columns: 100px 1fr; gap: 6px; margin-bottom: 4px;">
             <span style="color: var(--text-muted);">Project:</span>
@@ -444,23 +445,23 @@ window.Zoosh.AddClientModal = {
       return;
     }
 
-    const nextSrl = window.Zoosh.State.getNextClientSrl();
     const modalContent = `
       <div id="add-client-error" style="display: none; padding: 8px 12px; border-radius: 6px; background: #fef2f2; color: #991b1b; font-size: 12.5px; margin-bottom: 12px;"></div>
       
       <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; font-size: 12.5px; color: #166534;">
-        <strong>SRL belongs to the Client:</strong> SRL is the short-form customer identifier (e.g. SRL 101 for Sreelal). Furniture items produced for this client will be organized under projects associated with this SRL.
+        <strong>Client Short Code:</strong> Each client has a unique 3-letter short code (e.g., <strong>GNS</strong> for Ganesh, <strong>RJB</strong> for Rajeev, <strong>SWL</strong> for Swalih). All furniture items under this client will be sequentially coded (e.g., <em>GNS 001</em>, <em>GNS 002</em>).
       </div>
 
       <div class="form-group" style="margin-bottom: 12px;">
-        <label class="form-label">Client SRL Number</label>
-        <input type="number" id="new-client-srl" class="form-input" value="${nextSrl}" required />
-        <div class="form-help-text">Unique short-form identifier for this customer.</div>
+        <label class="form-label">Client / Customer Name *</label>
+        <input type="text" id="new-client-name" class="form-input" placeholder="e.g. Ganesh, Sreelal, Rajesh" required autofocus 
+          oninput="const c = document.getElementById('new-client-code'); if (c && (!c.dataset.manual || !c.value)) c.value = (window.Zoosh.State && window.Zoosh.State.generateClientCode) ? window.Zoosh.State.generateClientCode(this.value) : '';" />
       </div>
 
       <div class="form-group" style="margin-bottom: 12px;">
-        <label class="form-label">Client / Customer Name</label>
-        <input type="text" id="new-client-name" class="form-input" placeholder="e.g. Sreelal, Wayanad Hospitality" required autofocus />
+        <label class="form-label">Client Short Code (e.g. GNS, RJS, SWL) *</label>
+        <input type="text" id="new-client-code" class="form-input" placeholder="e.g. GNS" style="font-family: var(--font-mono); font-weight: 700; text-transform: uppercase;" oninput="this.dataset.manual = 'true'; this.value = this.value.toUpperCase();" />
+        <div class="form-help-text">Unique uppercase short code used across production schedules and serial product series.</div>
       </div>
 
       <div class="form-group" style="margin-bottom: 12px;">
@@ -481,31 +482,36 @@ window.Zoosh.AddClientModal = {
 
     const modalFooter = `
       <button class="btn btn-secondary" onclick="window.Zoosh.Modal.close()">Cancel</button>
-      <button class="btn btn-primary" onclick="window.Zoosh.AddClientModal.submit()">Save Client &amp; SRL</button>
+      <button class="btn btn-primary" onclick="window.Zoosh.AddClientModal.submit()">Save Client</button>
     `;
 
-    window.Zoosh.Modal.open('+ New Client / SRL', modalContent, modalFooter, '480px');
+    window.Zoosh.Modal.open('+ New Client', modalContent, modalFooter, '480px');
   },
 
   submit() {
-    const srlInput = document.getElementById('new-client-srl');
+    const codeInput = document.getElementById('new-client-code');
     const nameInput = document.getElementById('new-client-name');
     const locInput = document.getElementById('new-client-location');
     const phoneInput = document.getElementById('new-client-phone');
     const notesInput = document.getElementById('new-client-notes');
     const errEl = document.getElementById('add-client-error');
 
-    const srl = srlInput ? srlInput.value : '';
     const name = nameInput ? nameInput.value.trim() : '';
+    let code = codeInput ? codeInput.value.trim().toUpperCase() : '';
 
     if (!name) {
       if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'Client name is required.'; }
       return;
     }
 
+    if (!code && window.Zoosh.State && window.Zoosh.State.generateClientCode) {
+      code = window.Zoosh.State.generateClientCode(name);
+    }
+
     try {
       window.Zoosh.State.addClient({
-        srl: Number(srl),
+        code: code,
+        clientCode: code,
         name: name,
         location: locInput ? locInput.value : '',
         phone: phoneInput ? phoneInput.value : '',

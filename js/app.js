@@ -13,6 +13,35 @@ window.Zoosh = window.Zoosh || {};
 window.Zoosh.App = {
   currentView: 'overview',
   isBooted: false,
+  isSidebarOpen: false,
+
+  toggleSidebar(forceState) {
+    const sidebar = document.getElementById('app-sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (!sidebar) return;
+
+    if (typeof forceState === 'boolean') {
+      this.isSidebarOpen = forceState;
+    } else {
+      this.isSidebarOpen = !this.isSidebarOpen;
+    }
+
+    if (this.isSidebarOpen) {
+      sidebar.classList.add('open');
+      if (backdrop) backdrop.classList.add('active');
+    } else {
+      sidebar.classList.remove('open');
+      if (backdrop) backdrop.classList.remove('active');
+    }
+
+    // Trigger chart recalibration and layout adjustment
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+      if (this.currentView === 'schedule' && window.Zoosh.Views && window.Zoosh.Views.Schedule) {
+        window.Zoosh.Views.Schedule.refreshGantt();
+      }
+    }, 150);
+  },
 
   init() {
     console.log('Initializing ZOOSH Production Scheduling System...');
@@ -156,6 +185,25 @@ window.Zoosh.App = {
         }
       });
     });
+
+    // Close sidebar on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (this.isSidebarOpen) {
+          this.toggleSidebar(false);
+        }
+        if (window.Zoosh.Views && window.Zoosh.Views.Schedule) {
+          window.Zoosh.Views.Schedule.hideBarTooltip();
+        }
+      }
+    });
+
+    // Close tooltip on window scroll or resize
+    window.addEventListener('scroll', () => {
+      if (window.Zoosh.Views && window.Zoosh.Views.Schedule) {
+        window.Zoosh.Views.Schedule.hideBarTooltip();
+      }
+    }, true);
   },
 
   setupToolbar() {
@@ -186,6 +234,11 @@ window.Zoosh.App = {
   navigateTo(viewName) {
     this.currentView = viewName;
     this.mobileBackCallback = null;
+
+    // Automatically close overlay sidebar when a menu link is chosen
+    if (this.isSidebarOpen) {
+      this.toggleSidebar(false);
+    }
 
     // When newly opening the Production Schedule page, automatically default to today's date and today's schedule
     if (viewName === 'schedule') {

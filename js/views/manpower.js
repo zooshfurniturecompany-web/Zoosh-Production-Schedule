@@ -51,7 +51,7 @@ window.Zoosh.Views.Manpower = {
             ${leaveConflicts.map(conf => `
               <div style="background: #ffffff; padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid #fde68a; display: flex; align-items: center; justify-content: space-between;">
                 <div style="font-size: 13px;">
-                  <strong>${conf.employeeName}</strong> unavailable &bull; Affected: <strong>${conf.furnitureName} (Client: ${conf.clientName}, SRL: ${conf.srlNumber}, Dept: ${conf.department})</strong>
+                  <strong>${conf.employeeName}</strong> unavailable &bull; Affected: <strong>${conf.furnitureName} (Client: ${conf.clientName}${conf.clientCode ? ` [${conf.clientCode}]` : ''}, Dept: ${conf.department})</strong>
                 </div>
                 ${canEdit ? `
                   <button class="btn btn-accent btn-sm" onclick="window.Zoosh.ReallocateModal.open('${conf.processId}')">
