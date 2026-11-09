@@ -1485,7 +1485,7 @@ window.Zoosh.State = {
     this._state.projects.push(proj);
 
     // 3. Add 4 Products
-    const sampleChairImage = 'public/sample_chair.jpeg';
+    const sampleChairImage = 'assets/sample_chair.jpeg';
 
     const sofaItem = {
       id: 'furn_ansar_sofa',

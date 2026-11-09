@@ -5,3 +5,4 @@ test_*.js
 Thumbs.db
 
 .vercel
+.env*

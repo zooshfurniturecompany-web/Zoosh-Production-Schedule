@@ -1629,7 +1629,7 @@ window.Zoosh.Views.Estimate = {
 
     this.tempEstimate.productName = 'Sitout Chair';
     this.tempEstimate.productQty = 2;
-    this.tempEstimate.photo = 'public/sample_chair.jpeg';
+    this.tempEstimate.photo = 'assets/sample_chair.jpeg';
     this.tempEstimate.selectedProfitTier = '25';
     this.tempEstimate.customProfitPercent = 25;
 
