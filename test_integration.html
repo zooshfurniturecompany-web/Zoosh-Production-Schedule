@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ZOOSH Integration Automated Test Suite</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; background: #0f172a; color: #f8fafc; }
+    h1 { font-size: 20px; margin-bottom: 8px; color: #10b981; }
+    .test-box { background: #1e293b; border-radius: 8px; padding: 16px; margin-top: 16px; border: 1px solid #334155; }
+    .test-row { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #334155; font-size: 13px; }
+    .test-row:last-child { border-bottom: none; }
+    .badge-pass { background: #065f46; color: #34d399; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+    .badge-fail { background: #7f1d1d; color: #f87171; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+    #summary { font-size: 16px; font-weight: 700; margin-top: 16px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth/auth.js"></script>
+  <script src="js/data/demoData.js"></script>
+  <script src="js/engine/calendar.js"></script>
+  <script src="js/engine/scheduler.js"></script>
+  <script src="js/engine/allocator.js"></script>
+  <script src="js/engine/processFlow.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/services/quotationClient.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/components/modal.js"></script>
+  <script src="js/components/quotationImportModal.js"></script>
+  <script src="js/views/projects.js"></script>
+</head>
+<body>
+  <h1>ZOOSH Production Schedule &mdash; Phase 10 Integration Verification</h1>
+  <div style="font-size: 13px; color: #94a3b8;">Automated end-to-end verification of On-Demand Quotation System Integration</div>
+
+  <div id="summary">Running tests...</div>
+  <div class="test-box" id="test-results"></div>
+
+  <!-- Hidden Mount Point for testing UI modals -->
+  <div id="view-container" style="display: none;"></div>
+
+  <script>
+    const results = [];
+
+    function assert(name, condition, details = '') {
+      results.push({ name, passed: Boolean(condition), details });
+    }
+
+    async function runAllTests() {
+      try {
+        // 1. Initialize State
+        window.Zoosh.State.init();
+        assert('1. State Initialization', window.Zoosh.State.getState() !== null);
+
+        // 2. Verify Manual Project Creation Still Works (Regression check)
+        const initialProjCount = (window.Zoosh.State.getState().projects || []).length;
+        const manualProj = window.Zoosh.State.addProject({
+          name: 'Manual Test Villa',
+          location: 'Cochin',
+          confirmedDate: '2026-11-07',
+          deliveryDeadline: '2026-11-28',
+          notes: 'Standard manual creation test'
+        });
+        assert('2. Manual Project Creation Functionality', manualProj && manualProj.id.startsWith('proj_'));
+
+        // 3. Verify QuotationClient Service Available
+        assert('3. QuotationClient Service Registered', window.Zoosh.Services && typeof window.Zoosh.Services.QuotationClient.fetchQuotations === 'function');
+
+        // 4. Fetch Live Quotations On-Demand
+        let quotes = [];
+        try {
+          quotes = await window.Zoosh.Services.QuotationClient.fetchQuotations();
+        } catch (e) {
+          console.error(e);
+        }
+        assert('4. On-Demand Fetch from Quotation Supabase', Array.isArray(quotes) && quotes.length > 0, `Fetched ${quotes.length} quotations`);
+
+        // 5. Verify Quotation Ordering (Newest First)
+        let isOrdered = true;
+        for (let i = 0; i < quotes.length - 1; i++) {
+          const tA = new Date(quotes[i].updatedAt || quotes[i].createdAt || quotes[i].date || 0).getTime();
+          const tB = new Date(quotes[i+1].updatedAt || quotes[i+1].createdAt || quotes[i+1].date || 0).getTime();
+          if (tA < tB) { isOrdered = false; break; }
+        }
+        assert('5. Quotation Ordering (Newest First)', isOrdered);
+
+        // 6. Test Search Filtering (by QTN Number)
+        window.Zoosh.QuotationImportModal.quotations = quotes;
+        window.Zoosh.QuotationImportModal.searchQuery = quotes[0].no.substring(0, 8);
+        const filteredByNo = window.Zoosh.QuotationImportModal.getFilteredQuotations();
+        assert('6. Search by Quotation Number', filteredByNo.length > 0 && filteredByNo.some(q => q.no.includes(window.Zoosh.QuotationImportModal.searchQuery)));
+
+        // 7. Test Search Filtering (by Client Name)
+        const sampleClientName = quotes[0].clientNormalized.name;
+        window.Zoosh.QuotationImportModal.searchQuery = sampleClientName;
+        const filteredByClient = window.Zoosh.QuotationImportModal.getFilteredQuotations();
+        assert('7. Search by Client Name', filteredByClient.length > 0);
+        window.Zoosh.QuotationImportModal.searchQuery = ''; // Reset
+
+        // 8. Conversion Status Manual Toggle
+        const testQuote = quotes[0];
+        window.Zoosh.QuotationImportModal.setConversionStatus(testQuote.id, 'CONVERTED');
+        const trackingAfterConv = window.Zoosh.State.getQuotationTracking(testQuote.id);
+        assert('8. Mark Quotation as Converted', trackingAfterConv.conversionStatus === 'CONVERTED');
+
+        window.Zoosh.QuotationImportModal.setConversionStatus(testQuote.id, 'NOT_CONVERTED');
+        const trackingAfterNotConv = window.Zoosh.State.getQuotationTracking(testQuote.id);
+        assert('9. Mark Quotation as Not Converted', trackingAfterNotConv.conversionStatus === 'NOT_CONVERTED');
+
+        // Re-mark as Converted for import eligibility
+        window.Zoosh.QuotationImportModal.setConversionStatus(testQuote.id, 'CONVERTED');
+
+        // 10. Persistence Check (Saved in State & LocalStorage)
+        const reloadedTracking = window.Zoosh.State.getQuotationTracking(testQuote.id);
+        assert('10. Conversion Status Persistence', reloadedTracking.conversionStatus === 'CONVERTED');
+
+        // 11. Eligibility Check: Non-converted quotations cannot be imported
+        const nonConvQuote = quotes.length > 1 ? quotes[1] : quotes[0];
+        window.Zoosh.QuotationImportModal.setConversionStatus(nonConvQuote.id, 'NOT_REVIEWED');
+        let blocked = false;
+        const originalAlert = window.alert;
+        window.alert = () => { blocked = true; };
+        window.Zoosh.QuotationImportModal.selectQuotationForReview(nonConvQuote.id);
+        assert('11. Non-Converted Quotation Import Guard', blocked, 'Successfully blocked non-converted quotation');
+        window.alert = originalAlert;
+
+        // 12. Review Step Preparation on Converted Quotation
+        window.Zoosh.QuotationImportModal.selectQuotationForReview(testQuote.id);
+        assert('12. Select Converted Quotation for Review', window.Zoosh.QuotationImportModal.step === 'REVIEW');
+
+        // 13. Product Selection Checkbox Mechanics
+        const totalItems = (testQuote.items || []).length;
+        assert('13. Product Selection Setup', window.Zoosh.QuotationImportModal.selectedProductIds.size === totalItems);
+
+        // 14. Data Separation: Verify Original Data is preserved & distinct from Production Inputs
+        const firstItemId = testQuote.items[0];
+        const origItem = testQuote.itemData[firstItemId] || {};
+        const prodItem = window.Zoosh.QuotationImportModal.productionSpecs[firstItemId];
+        assert('14. Data Separation in Review Form', origItem && prodItem && prodItem.name !== undefined);
+
+        // 15. Edit Production Manufacturing Details
+        prodItem.name = 'Custom Master Crafted Sofa';
+        prodItem.measurements = '2450 × 950 × 850 mm';
+        prodItem.woodType = 'Solid Burma Teak';
+        prodItem.structure = 'Heavy-duty mortise and tenon joinery';
+        prodItem.foam = '45 Density Super Soft HR Foam';
+        prodItem.fabric = 'Imported Belgian Linen Velvet';
+        prodItem.flowTypeId = 'preset_1';
+        assert('15. Independent Production Field Editing', prodItem.measurements === '2450 × 950 × 850 mm');
+
+        // 16. Verify Original Quotation Data Unchanged
+        assert('16. Original Quotation Data Immutable', origItem.unit === testQuote.itemData[firstItemId].unit);
+
+        // 17. Execute Import into Production Schedule
+        const importPayload = {
+          quotation: testQuote,
+          clientData: {
+            name: testQuote.clientNormalized.name || 'Test Client',
+            location: testQuote.clientNormalized.location || 'Calicut',
+            phone: testQuote.clientNormalized.phone || '9847012345'
+          },
+          projectData: {
+            name: `${testQuote.clientNormalized.name} - ${testQuote.no}`,
+            location: testQuote.clientNormalized.location || 'Site',
+            confirmedDate: '2026-11-07',
+            deliveryDeadline: '2026-11-30',
+            notes: 'Automated test import'
+          },
+          selectedProducts: [
+            {
+              itemId: firstItemId,
+              original: {
+                name: origItem.name,
+                spec: origItem.spec,
+                unit: parseFloat(origItem.unit) || 0,
+                qty: parseInt(origItem.qty, 10) || 1,
+                utype: origItem.utype || 'nos',
+                total: (parseFloat(origItem.unit) || 0) * (parseInt(origItem.qty, 10) || 1)
+              },
+              production: prodItem
+            }
+          ]
+        };
+
+        const importResult = window.Zoosh.State.importProjectFromQuotation(importPayload);
+        assert('17. Production Project Creation via Import', importResult && importResult.success === true);
+
+        // 18. Verify Created Furniture has Both Original & Manufacturing Specs
+        const importedProject = importResult.project;
+        const stateFurniture = window.Zoosh.State.getState().furniture || [];
+        const importedFurn = stateFurniture.find(f => f.projectId === importedProject.id);
+        assert('18. Preserved Original vs Manufacturing in Furniture Item', 
+          importedFurn && 
+          importedFurn.originalQuotationData && 
+          importedFurn.originalQuotationData.quotationNo === testQuote.no &&
+          importedFurn.manufacturing &&
+          importedFurn.manufacturing.woodType === 'Solid Burma Teak'
+        );
+
+        // 19. Duplicate Import Prevention Check
+        const duplicateAttempt = window.Zoosh.State.importProjectFromQuotation(importPayload);
+        assert('19. Duplicate Import Guard', duplicateAttempt.duplicate === true, 'Successfully detected and flagged duplicate import');
+
+        // 20. Production Schedule & Gantt Engine Recalculation
+        window.Zoosh.State.recalculate();
+        const sched = window.Zoosh.State.getState();
+        assert('20. Gantt Engine & Workflow Compatibility', sched.furniture.length > 0 && typeof sched.currentDate === 'string');
+
+      } catch (err) {
+        assert('FATAL ERROR', false, err.stack || err.message);
+      }
+
+      // Render Results Table
+      const container = document.getElementById('test-results');
+      const passedCount = results.filter(r => r.passed).length;
+      const totalCount = results.length;
+
+      document.getElementById('summary').innerHTML = `
+        <span style="color: ${passedCount === totalCount ? '#34d399' : '#f87171'}">
+          ${passedCount} of ${totalCount} Phase 10 Tests Passed! ${passedCount === totalCount ? '✓ ALL TESTS PASSED' : '✗ SOME TESTS FAILED'}
+        </span>
+      `;
+
+      container.innerHTML = results.map(r => `
+        <div class="test-row">
+          <span>${r.name} ${r.details ? `<span style="color: #94a3b8; font-size: 11px;">(${r.details})</span>` : ''}</span>
+          <span class="${r.passed ? 'badge-pass' : 'badge-fail'}">${r.passed ? 'PASS' : 'FAIL'}</span>
+        </div>
+      `).join('');
+    }
+
+    window.addEventListener('DOMContentLoaded', runAllTests);
+  </script>
+</body>
+</html>

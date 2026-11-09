@@ -110,8 +110,11 @@ window.Zoosh.App = {
       this.updateTopbarBadges(state);
     });
 
-    // 8. Initial Render
-    this.navigateTo(this.currentView || 'overview');
+    // 8. Initial Render based on URL hash or default overview
+    const hashRoute = (window.location.hash || '').replace('#', '').trim();
+    const validViews = ['overview', 'projects', 'estimate', 'schedule', 'team', 'processes', 'manpower', 'reports', 'settings'];
+    const initialView = validViews.includes(hashRoute) ? hashRoute : (this.currentView || 'overview');
+    this.navigateTo(initialView);
     this.updateTopbarBadges(window.Zoosh.State.getState());
     this.isBooted = true;
   },
@@ -198,6 +201,15 @@ window.Zoosh.App = {
       }
     });
 
+    // Listen to hash changes for deep linking
+    window.addEventListener('hashchange', () => {
+      const hashRoute = (window.location.hash || '').replace('#', '').trim();
+      const validViews = ['overview', 'projects', 'estimate', 'schedule', 'team', 'processes', 'manpower', 'reports', 'settings'];
+      if (validViews.includes(hashRoute) && hashRoute !== this.currentView) {
+        this.navigateTo(hashRoute);
+      }
+    });
+
     // Close tooltip on window scroll or resize
     window.addEventListener('scroll', () => {
       if (window.Zoosh.Views && window.Zoosh.Views.Schedule) {
@@ -271,6 +283,7 @@ window.Zoosh.App = {
     const viewTitles = {
       overview: 'Overview',
       projects: 'Clients & Projects',
+      estimate: 'Excel Estimates',
       schedule: 'Production Schedule',
       team: 'Team & Craftspeople',
       processes: 'Process Flow Types',
@@ -311,6 +324,9 @@ window.Zoosh.App = {
         break;
       case 'projects':
         window.Zoosh.Views.Projects.render(container);
+        break;
+      case 'estimate':
+        window.Zoosh.Views.Estimate.render(container);
         break;
       case 'schedule':
         window.Zoosh.Views.Schedule.render(container);

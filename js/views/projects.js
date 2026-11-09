@@ -49,6 +49,9 @@ window.Zoosh.Views.Projects = {
         </div>
         <div style="display: flex; gap: 10px;">
           ${canCreate ? `
+            <button class="btn btn-secondary" onclick="window.Zoosh.QuotationImportModal.open()" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; border: 1px solid #10b981; color: #065f46; background: #ecfdf5;">
+              <span>📄</span> Import Quotation
+            </button>
             <button class="btn btn-primary" onclick="window.Zoosh.Views.Projects.openAddModal()">
               <span>+</span> New Project
             </button>
@@ -191,7 +194,14 @@ window.Zoosh.Views.Projects = {
               </span>
             </div>
           </div>
-          <span class="badge ${badgeClass}" style="font-size: 10px;">${statusLabel}</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            ${project.quotationRef ? `
+              <span class="badge" style="background: #ecfdf5; color: #065f46; font-size: 10px; border: 1px solid #a7f3d0; font-family: var(--font-mono); font-weight: 700;" title="Imported from Quotation">
+                📄 ${project.quotationRef.quotationNo}
+              </span>
+            ` : ''}
+            <span class="badge ${badgeClass}" style="font-size: 10px;">${statusLabel}</span>
+          </div>
         </div>
 
         <div class="card-panel-body" style="padding: 14px 18px;">
@@ -253,7 +263,14 @@ window.Zoosh.Views.Projects = {
               <strong style="color: var(--primary-color); font-family: var(--font-mono);">${clientCode}</strong> &bull; ${clientName} &bull; ${project.location}
             </div>
           </div>
-          <span class="badge ${badgeClass}" style="font-size: 10px;">${statusLabel}</span>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            ${project.quotationRef ? `
+              <span class="badge" style="background: #ecfdf5; color: #065f46; font-size: 9.5px; border: 1px solid #a7f3d0; font-family: var(--font-mono); font-weight: 700;">
+                📄 ${project.quotationRef.quotationNo}
+              </span>
+            ` : ''}
+            <span class="badge ${badgeClass}" style="font-size: 10px;">${statusLabel}</span>
+          </div>
         </div>
 
         <div style="margin: 12px 0;">
@@ -460,6 +477,13 @@ window.Zoosh.Views.Projects = {
               <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
                 Client: <strong>${clientName}</strong>${clientCode ? ` (${clientCode})` : ''} &bull; Location: <strong>${project.location}</strong>
               </div>
+              ${project.quotationRef ? `
+                <div style="margin-top: 8px; display: inline-flex; align-items: center; gap: 8px; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: 6px;">
+                  <span style="font-size: 13px;">📄</span>
+                  <span style="font-size: 12px; font-weight: 700; color: #065f46;">Quotation Reference: ${project.quotationRef.quotationNo}</span>
+                  <span style="font-size: 11px; color: #047857;">(Imported ${new Date(project.quotationRef.importedAt).toLocaleDateString()})</span>
+                </div>
+              ` : ''}
               ${project.notes ? `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px; font-style: italic;">"${project.notes}"</div>` : ''}
             </div>
 
@@ -476,6 +500,9 @@ window.Zoosh.Views.Projects = {
                       📦 Mark as Delivered
                     </button>
                   `}
+                  <button class="btn btn-secondary btn-sm" style="color: #065f46; background: #ecfdf5; border-color: #a7f3d0; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" onclick="window.Zoosh.Views.Estimate ? window.Zoosh.Views.Estimate.openProject('${project.id}') : (window.Zoosh.App.navigateTo('estimate'))" title="Open Excel Estimation Sheets for this Project">
+                    📊 Estimates
+                  </button>
                   <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Projects.openEditProjectModal('${project.id}')">
                     Edit Deadline
                   </button>
@@ -581,9 +608,30 @@ window.Zoosh.Views.Projects = {
                           </span>
                         </td>
                         <td style="font-weight: 700; color: var(--text-main); font-size: 13.5px;">
-                          <a href="javascript:void(0)" onclick="window.Zoosh.Views.Projects.openFurnitureDetail('${item.id}')" style="color: inherit; text-decoration: none;">
-                            ${item.name || item.furnitureName}
-                          </a>
+                          <div style="display: flex; align-items: center; gap: 10px;">
+                            ${(item.photo || item.image || (item.originalQuotationData && item.originalQuotationData.photoUrl)) ? `
+                              <img src="${item.photo || item.image || item.originalQuotationData.photoUrl}" alt="${item.name || 'Product'}" style="width: 42px; height: 42px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-light); flex-shrink: 0;" />
+                            ` : `
+                              <div style="width: 42px; height: 42px; border-radius: 6px; background: #f1f5f9; border: 1px solid var(--border-light); display: inline-flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 18px; flex-shrink: 0;" title="No photo">
+                                🪑
+                              </div>
+                            `}
+                            <div>
+                              <a href="javascript:void(0)" onclick="window.Zoosh.Views.Projects.openFurnitureDetail('${item.id}')" style="color: inherit; text-decoration: none;">
+                                ${item.name || item.furnitureName}
+                              </a>
+                              ${item.manufacturing && item.manufacturing.measurements ? `
+                                <div style="font-size: 11px; font-weight: normal; color: var(--text-muted); margin-top: 2px;">
+                                  📐 ${item.manufacturing.measurements} ${item.manufacturing.woodType ? `• ${item.manufacturing.woodType}` : ''}
+                                </div>
+                              ` : ''}
+                              ${item.originalQuotationData ? `
+                                <div style="font-size: 10.5px; font-weight: normal; color: #047857; margin-top: 1px;">
+                                  Quoted: "${item.originalQuotationData.originalName}"
+                                </div>
+                              ` : ''}
+                            </div>
+                          </div>
                         </td>
                         <td>
                           ${flowHtml}
@@ -593,9 +641,12 @@ window.Zoosh.Views.Projects = {
                         </td>
                         <td>
                           <div style="display: flex; gap: 6px; align-items: center;">
+                            <button class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px; color: #059669; font-weight: 600;" onclick="window.Zoosh.Views.Estimate ? window.Zoosh.Views.Estimate.openProduct('${item.projectId}', '${item.id}') : (window.Zoosh.App.navigateTo('estimate'))" title="Open Excel Estimation Sheet">
+                              📊 Estimate
+                            </button>
                             ${canEdit ? `
                               <button class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;" onclick="window.Zoosh.ProcessFlowModal.openEdit('${item.id}')" title="Edit Process Flow Order">
-                                ✏️ Edit Flow
+                                ✏️ Flow
                               </button>
                             ` : ''}
                             <button class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px;" onclick="window.Zoosh.Views.Projects.openFurnitureDetail('${item.id}')">
@@ -765,8 +816,15 @@ window.Zoosh.Views.Projects = {
       <!-- Furniture Header Card -->
       <div class="card-panel" style="margin-bottom: 20px;">
         <div class="card-panel-body" style="padding: 18px 20px;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
-            <div>
+          <div style="display: flex; gap: 16px; align-items: flex-start; margin-bottom: 6px;">
+            ${(item.photo || item.image || (item.originalQuotationData && item.originalQuotationData.photoUrl)) ? `
+              <img src="${item.photo || item.image || item.originalQuotationData.photoUrl}" alt="${item.name || 'Product'}" style="width: 76px; height: 76px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-light); flex-shrink: 0;" />
+            ` : `
+              <div style="width: 76px; height: 76px; border-radius: 8px; background: #f1f5f9; border: 1px solid var(--border-light); display: flex; align-items: center; justify-content: center; font-size: 30px; color: #94a3b8; flex-shrink: 0;">
+                🪑
+              </div>
+            `}
+            <div style="flex: 1; min-width: 0;">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span class="badge badge-primary" style="font-size: 11px; padding: 2px 7px; font-family: var(--font-mono); font-weight: 700;">
                   ${item.productCode || item.itemCode || 'Product'}
@@ -775,9 +833,14 @@ window.Zoosh.Views.Projects = {
                   Client: <strong>${clientName} (${clientCode})</strong> &bull; Project: <strong>${project ? project.name : '—'}</strong>
                 </span>
               </div>
-              <h2 style="font-size: 20px; font-weight: 800; color: var(--text-main); margin-top: 8px;">
+              <h2 style="font-size: 20px; font-weight: 800; color: var(--text-main); margin-top: 6px;">
                 ${item.name || item.furnitureName}
               </h2>
+              <div style="margin-top: 6px; display: flex; gap: 8px; align-items: center;">
+                <button class="btn btn-secondary btn-sm" style="color: #065f46; background: #ecfdf5; border-color: #a7f3d0; font-weight: 700; font-size: 11px; padding: 3px 8px;" onclick="window.Zoosh.Views.Estimate ? window.Zoosh.Views.Estimate.openProduct('${item.projectId}', '${item.id}') : (window.Zoosh.App.navigateTo('estimate'))">
+                  📊 Open Excel Estimation Sheet &rarr;
+                </button>
+              </div>
             </div>
             <span class="badge ${item.status === 'COMPLETED' ? 'badge-on-schedule' : 'badge-upholstery'}" style="font-size: 11px;">
               ● ${item.status.replace('_', ' ')}
@@ -799,6 +862,73 @@ window.Zoosh.Views.Projects = {
           </div>
         </div>
       </div>
+
+      <!-- Quotation Reference vs Manufacturing Specifications Card (Phase 5) -->
+      ${item.originalQuotationData || item.manufacturing ? `
+        <div class="card-panel" style="margin-bottom: 20px;">
+          <div class="card-panel-header" style="background: #f8fafc; padding: 12px 18px;">
+            <div class="card-panel-title" style="display: flex; align-items: center; gap: 8px; font-size: 13.5px;">
+              <span>📄</span> Specifications: Original Quotation vs. Manufacturing
+            </div>
+            ${item.originalQuotationData ? `
+              <span class="badge" style="background: #ecfdf5; color: #065f46; font-size: 11px; font-family: var(--font-mono); font-weight: 700; border: 1px solid #a7f3d0;">
+                ${item.originalQuotationData.quotationNo}
+              </span>
+            ` : ''}
+          </div>
+          <div class="card-panel-body" style="padding: 16px;">
+            <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px;">
+              <!-- Original Quotation Specs (Immutable) -->
+              <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 12px;">
+                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 8px; display: flex; align-items: center; gap: 4px;">
+                  <span>🔒</span> Original Quotation Reference (Frozen)
+                </div>
+                ${item.originalQuotationData ? `
+                  <div style="font-size: 12px; margin-bottom: 6px;">
+                    <span style="color: var(--text-muted);">Quoted Product Name:</span>
+                    <strong style="color: var(--text-main); display: block; margin-top: 1px;">${item.originalQuotationData.originalName}</strong>
+                  </div>
+                  <div style="font-size: 12px; margin-bottom: 6px;">
+                    <span style="color: var(--text-muted);">Quoted Description / Specs:</span>
+                    <div style="color: #334155; margin-top: 2px; font-size: 11.5px; background: #fff; padding: 6px; border-radius: 4px; border: 1px solid #e2e8f0; white-space: pre-wrap;">${item.originalQuotationData.originalSpec || 'No specifications provided.'}</div>
+                  </div>
+                  <div style="font-size: 11.5px; color: var(--text-muted);">
+                    Quoted Rate: <strong>₹${(item.originalQuotationData.originalRate || 0).toLocaleString('en-IN')}</strong> (${item.originalQuotationData.originalQty} ${item.originalQuotationData.originalUtype})
+                  </div>
+                ` : '<div style="color: var(--text-muted); font-size: 12px;">No quotation reference.</div>'}
+              </div>
+
+              <!-- Manufacturing Specs (Production) -->
+              <div style="background: #ffffff; border: 1px solid #10b981; border-radius: 6px; padding: 12px;">
+                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #065f46; margin-bottom: 8px; display: flex; align-items: center; gap: 4px;">
+                  <span>⚙️</span> Factory Manufacturing Specs (Editable)
+                </div>
+                ${item.manufacturing ? `
+                  <div style="font-size: 12px; margin-bottom: 6px;">
+                    <span style="color: var(--text-muted);">Actual Manufacturing Measurements:</span>
+                    <strong style="color: var(--text-main); display: block; font-family: var(--font-mono);">${item.manufacturing.measurements || 'Not specified'}</strong>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; margin-bottom: 6px;">
+                    <div>
+                      <span style="color: var(--text-muted);">Wood/Structure:</span>
+                      <div style="font-weight: 600;">${item.manufacturing.woodType || item.manufacturing.structure || '—'}</div>
+                    </div>
+                    <div>
+                      <span style="color: var(--text-muted);">Foam/Fabric:</span>
+                      <div style="font-weight: 600;">${item.manufacturing.foam || item.manufacturing.fabric || '—'}</div>
+                    </div>
+                  </div>
+                  ${item.manufacturing.notes ? `
+                    <div style="font-size: 11.5px; color: #047857; background: #ecfdf5; padding: 6px; border-radius: 4px; margin-top: 6px;">
+                      Note: ${item.manufacturing.notes}
+                    </div>
+                  ` : ''}
+                ` : '<div style="color: var(--text-muted); font-size: 12px;">Standard manufacturing specifications.</div>'}
+              </div>
+            </div>
+          </div>
+        </div>
+      ` : ''}
 
       <!-- Two-Lane Scheduled Flow Representation -->
       <div class="card-panel" style="margin-bottom: 20px;">
@@ -970,7 +1100,7 @@ window.Zoosh.Views.Projects = {
       <div style="display: flex; flex-direction: column; gap: 14px;">
         <div id="new-proj-error" style="display: none; padding: 8px 12px; border-radius: 6px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: 12.5px;"></div>
 
-        <!-- Mode Toggle: New Client vs Existing Client -->
+        <!-- Mode Toggle: New Client vs Existing Client vs Import Quotation -->
         <div style="display: flex; gap: 8px; background: #f1f5f9; padding: 4px; border-radius: 8px;">
           <button 
             type="button"
@@ -990,6 +1120,15 @@ window.Zoosh.Views.Projects = {
             onclick="window.Zoosh.Views.Projects.setNewProjClientMode('EXISTING')"
           >
             Existing Client (${clients.length})
+          </button>
+          <button 
+            type="button"
+            class="btn btn-sm" 
+            style="flex: 1.1; border-radius: 6px; font-size: 12px; font-weight: 700; background: #ecfdf5; color: #065f46; border: 1px solid #10b981; display: flex; align-items: center; justify-content: center; gap: 4px;"
+            onclick="window.Zoosh.Modal.close(); window.Zoosh.QuotationImportModal.open();"
+            title="Import on-demand from Quotation System"
+          >
+            📄 IMPORT QUOTATION
           </button>
         </div>
 

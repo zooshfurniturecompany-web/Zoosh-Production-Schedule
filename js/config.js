@@ -14,6 +14,10 @@ window.Zoosh.Config = {
   SUPABASE_URL: 'https://playozyzrndsjiayvpwx.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYXlvenl6cm5kc2ppYXl2cHd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1Nzg4MzgsImV4cCI6MjEwNjE1NDgzOH0.t5YUHklTi1SirpcWk15HOl03jw6rt9PhvOH9r468ZfU',
   
+  // Dedicated Separate Quotation System Supabase (Read-Only on-demand)
+  QUOTATION_SUPABASE_URL: 'https://ulkemopqbbpiluotoxdn.supabase.co',
+  QUOTATION_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVsa2Vtb3BxYmJwaWx1b3RveGRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNTU2NjgsImV4cCI6MjA5ODczMTY2OH0.pD4HJse3EK85sZ1Jvdmt8K2JYUSzlhRO3jAmfD2xwJ0',
+    
   // Base factory calendar settings (defaults dynamically to today's live date)
   CURRENT_DATE: (() => {
     const d = new Date();

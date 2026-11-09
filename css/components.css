@@ -1004,4 +1004,36 @@
   font-size: 12px;
 }
 
+@keyframes zoosh-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Print Styles for Estimation Sheets */
+@media print {
+  .app-sidebar,
+  .control-topbar,
+  .mobile-topbar,
+  .mobile-bottom-nav,
+  .btn,
+  .sidebar-backdrop {
+    display: none !important;
+  }
+
+  body, #app, .app-main, #view-container {
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  .card-panel {
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+}
+
+
+
 

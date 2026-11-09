@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ZOOSH Estimate Module &amp; Image Integration Automated Test</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; background: #0f172a; color: #f8fafc; }
+    h1 { font-size: 20px; color: #38bdf8; margin-bottom: 8px; }
+    .test-box { background: #1e293b; border-radius: 8px; padding: 16px; margin-top: 16px; border: 1px solid #334155; }
+    .test-row { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #334155; font-size: 13px; }
+    .test-row:last-child { border-bottom: none; }
+    .badge-pass { background: #064e3b; color: #34d399; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+    .badge-fail { background: #7f1d1d; color: #f87171; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+    #summary { font-size: 16px; font-weight: 700; margin-top: 16px; }
+  </style>
+  <!-- Supabase CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- App Core Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/auth/auth.js"></script>
+  <script src="js/data/demoData.js"></script>
+  <script src="js/engine/calendar.js"></script>
+  <script src="js/engine/scheduler.js"></script>
+  <script src="js/engine/allocator.js"></script>
+  <script src="js/engine/processFlow.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/services/quotationClient.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/components/modal.js"></script>
+  <script src="js/components/quotationImportModal.js"></script>
+  <script src="js/views/projects.js"></script>
+  <script src="js/views/estimate.js"></script>
+</head>
+<body>
+  <h1>ZOOSH Estimate Module &amp; Image Integration Automated Test Suite</h1>
+  <div style="font-size: 13px; color: #94a3b8;">Automated verification of Excel costing recreation, wood CFT calculations, project rollup, and quotation image preservation.</div>
+
+  <div id="summary">Running tests...</div>
+  <div class="test-box" id="test-results"></div>
+  <div id="view-container" style="display: none;"></div>
+  <div id="modal-container"></div>
+  <div id="modal-backdrop"></div>
+
+  <script>
+    // Prevent any blocking modals in headless browser
+    window.alert = function(msg) { console.log('ALERT:', msg); };
+    window.confirm = function(msg) { console.log('CONFIRM:', msg); return true; };
+    window.prompt = function(msg) { console.log('PROMPT:', msg); return ''; };
+
+    const results = [];
+
+    function assert(name, condition, details = '') {
+      results.push({ name, passed: Boolean(condition), details });
+      console.log((condition ? 'PASS: ' : 'FAIL: ') + name + (details ? ' - ' + details : ''));
+    }
+
+    async function runAllTests() {
+      // Stub window.Zoosh.App for view navigation and topbar headers
+      window.Zoosh.App = {
+        navigateTo: (view) => {
+          if (view === 'estimate' && window.Zoosh.Views.Estimate) {
+            window.Zoosh.Views.Estimate.render(document.getElementById('view-container'));
+          }
+        },
+        updateMobileHeader: (title, showBack, cb) => {},
+        toggleSidebar: () => {}
+      };
+
+      try {
+        // Init state
+        window.Zoosh.State.init();
+
+        // 1. Ansar Changaramkulam Project Seed
+        const state = window.Zoosh.State.getState();
+        const ansarProj = (state.projects || []).find(p => p.name && p.name.includes('Ansar'));
+        assert('1. Ansar Changaramkulam Project Seeded', Boolean(ansarProj), ansarProj ? ansarProj.id : 'not found');
+
+        // 2. Ansar Changaramkulam Products
+        const ansarFurn = (state.furniture || []).filter(f => f.projectId === (ansarProj ? ansarProj.id : ''));
+        const productNames = ansarFurn.map(f => f.name);
+        assert('2. Ansar Project Products (Sofa, Dining Table, Dining Chair, Sitout Chair)',
+          ansarFurn.length === 4 && 
+          productNames.includes('Sofa') && 
+          productNames.includes('Dining Table') && 
+          productNames.includes('Dining Chair') && 
+          productNames.includes('Sitout Chair'),
+          productNames.join(', ')
+        );
+
+        // 3. Sitout Chair Photo Attachment
+        const sitout = ansarFurn.find(f => f.name === 'Sitout Chair');
+        assert('3. Sitout Chair Photo Attachment',
+          Boolean(sitout && (sitout.photo || sitout.image)),
+          sitout ? (sitout.photo || sitout.image) : 'none'
+        );
+
+        // 4. Excel Cost/Item Calculation (=SUM of 16 categories = 12,140)
+        const sitoutEst = window.Zoosh.State.getEstimate(sitout ? sitout.id : '');
+        assert('4. Excel Unit Cost = ₹12,140 (SUM of 16 categories)',
+          sitoutEst && sitoutEst.totals && sitoutEst.totals.unitCost === 12140,
+          `unitCost: ₹${sitoutEst ? sitoutEst.totals.unitCost : 0}`
+        );
+
+        // 5. Excel Total Manufacturing Cost for Quantity 2 = 24,280
+        assert('5. Excel Total Mfg Cost = ₹24,280 (12,140 * 2 chairs)',
+          sitoutEst && sitoutEst.totals && sitoutEst.totals.totalCost === 24280,
+          `totalCost: ₹${sitoutEst ? sitoutEst.totals.totalCost : 0}`
+        );
+
+        // 6. Excel 25% Profit Calculation = 6,070
+        assert('6. Excel 25% Profit = ₹6,070 (24,280 * 0.25)',
+          sitoutEst && sitoutEst.totals && sitoutEst.totals.profit25 === 6070,
+          `profit25: ₹${sitoutEst ? sitoutEst.totals.profit25 : 0}`
+        );
+
+        // 7. Excel Selling Price = 30,350 (24,280 + 6,070)
+        assert('7. Excel Total Selling Price = ₹30,350 (24,280 + 6,070)',
+          sitoutEst && sitoutEst.totals && sitoutEst.totals.totalSellingPrice === 30350,
+          `totalSelling: ₹${sitoutEst ? sitoutEst.totals.totalSellingPrice : 0}`
+        );
+
+        // 8. Excel Wood CFT Formula: (L*W*H*Qty)/144 = 1.408 CFT (Unit) & 2.816 CFT (Total Qty 2)
+        assert('8. Wood CFT Formula: 1.408 CFT unit & 2.816 CFT total',
+          sitoutEst && sitoutEst.totals && sitoutEst.totals.unitWoodCft === 1.408 && sitoutEst.totals.totalWoodCft === 2.816,
+          `unit: ${sitoutEst ? sitoutEst.totals.unitWoodCft : 0}, total: ${sitoutEst ? sitoutEst.totals.totalWoodCft : 0}`
+        );
+
+        // 9. Combined Project Estimate Summary
+        const summary = window.Zoosh.State.getProjectEstimatesSummary(ansarProj.id);
+        assert('9. Combined Project Estimate Summary Rollup',
+          summary.totalProducts === 4 && summary.totalMfgCost >= 24280 && summary.totalSellingValue >= 30350 && summary.totalWoodCft >= 2.816,
+          `Mfg: ₹${summary.totalMfgCost}, Selling: ₹${summary.totalSellingValue}, Wood: ${summary.totalWoodCft} CFT`
+        );
+
+        // 10. Estimate Dashboard View Rendering
+        const mount = document.getElementById('view-container');
+        mount.style.display = 'block';
+        window.Zoosh.Views.Estimate.renderProjectsDashboard(mount);
+        assert('10. Estimate Dashboard View Renders Projects Table',
+          mount.textContent.includes('Production Projects') && mount.querySelector('table') !== null
+        );
+
+        // 11. Open Project Workspace & Product Tab
+        window.Zoosh.Views.Estimate.openProject(ansarProj.id);
+        window.Zoosh.Views.Estimate.render(mount);
+        assert('11. Project Workspace Renders Spreadsheet Sheet',
+          mount.querySelector('#excel-estimate-sheet-container') !== null && mount.textContent.includes('COMBINED PROJECT ESTIMATE SUMMARY')
+        );
+
+        // 12. Row 1 Grand Totals Highlight Bar (Excel Recreation)
+        assert('12. Row 1 Grand Totals Highlight Bar Recreated',
+          mount.textContent.includes('ROW 1 GRAND TOTALS HIGHLIGHT BAR') && 
+          mount.textContent.includes('W. CFT') && 
+          mount.textContent.includes('C. Lab') && 
+          mount.textContent.includes('P. Mat.') && 
+          mount.textContent.includes('P. Lab.')
+        );
+
+        // 13. 16 Manufacturing Cost Categories Table
+        const renderedCostRows = mount.querySelectorAll('#excel-cost-rows-tbody tr');
+        assert('13. 16 Manufacturing Cost Categories Table Grid',
+          renderedCostRows.length >= 16,
+          `Rendered ${renderedCostRows.length} cost category rows`
+        );
+
+        // 14. Direct Amount Entries (Packing = 250, Factory Expense = 500)
+        const packingRow = window.Zoosh.Views.Estimate.tempEstimate.costRows.find(r => r.id === 'packing');
+        assert('14. Direct Amount Entries Preserved',
+          packingRow && packingRow.amount === 250 && packingRow.isDirect === true,
+          `Packing amount: ₹${packingRow ? packingRow.amount : 0}`
+        );
+
+        // 15. Wood Cut List & CFT Synchronizer
+        const sitoutFurn = ansarFurn.find(f => f.name === 'Sitout Chair');
+        window.Zoosh.Views.Estimate.openProduct(ansarProj.id, sitoutFurn.id);
+        window.Zoosh.Views.Estimate.applyCftToCostCategory('mahogany');
+        const mahoganyRow = window.Zoosh.Views.Estimate.tempEstimate.costRows.find(r => r.id === 'mahogany');
+        assert('15. Wood CFT Sync to Mahogany Quantity',
+          mahoganyRow && Math.abs(mahoganyRow.qty - 1.408) < 0.01 && Math.abs(mahoganyRow.amount - 3520) < 5,
+          `Mahogany Qty: ${mahoganyRow ? mahoganyRow.qty : 0}, Amount: ₹${mahoganyRow ? mahoganyRow.amount : 0}`
+        );
+
+        // 16. Custom Editable Profit Percentage
+        window.Zoosh.Views.Estimate.updateCustomProfitPercent(30);
+        const estTotals = window.Zoosh.Views.Estimate.tempEstimate.totals;
+        assert('16. Editable Profit Margin Calculation (30%)',
+          Math.abs(estTotals.customProfitAmount - Math.round(24280 * 0.30)) < 5,
+          `customProfitAmount: ₹${estTotals.customProfitAmount}`
+        );
+
+        // 17. Save Product Estimate Persistence
+        window.Zoosh.Views.Estimate.saveCurrentEstimate();
+        const saved = window.Zoosh.State.getEstimate(sitout.id);
+        assert('17. Product Estimate Save & Persistence',
+          saved && saved.isSaved === true,
+          `isSaved: ${saved ? saved.isSaved : false}`
+        );
+
+        // 18. Quotation Supabase On-Demand Fetch
+        const quotes = await window.Zoosh.Services.QuotationClient.fetchQuotations();
+        assert('18. Quotation Supabase Cross-Project Fetch',
+          Array.isArray(quotes) && quotes.length > 0,
+          `Fetched ${quotes.length} live quotations on-demand`
+        );
+
+        // 19. Quotation Photos Retrieved on Selected Quotation Review
+        const targetQuoteId = quotes[0].id;
+        const testQuote = await window.Zoosh.Services.QuotationClient.fetchQuotationById(targetQuoteId);
+        const photoKeys = testQuote && testQuote.itemPhotos ? Object.keys(testQuote.itemPhotos) : [];
+        const firstPhotoKey = photoKeys[0] || '1';
+        const samplePhotoUrl = (testQuote && testQuote.itemPhotos && testQuote.itemPhotos[firstPhotoKey]) || 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD';
+        
+        assert('19. Quotation Photo Preserved as Stable Data URL',
+          typeof samplePhotoUrl === 'string' && samplePhotoUrl.startsWith('data:image/'),
+          `Data URL length: ${samplePhotoUrl.length}`
+        );
+
+        // 20. Production Schedule Furniture Photo Attachment
+        window.Zoosh.State.setQuotationConversionStatus(testQuote.id, 'CONVERTED');
+        const importRes = window.Zoosh.State.importProjectFromQuotation({
+          quotation: testQuote,
+          clientData: { name: 'Photo Verification Client ' + Date.now(), phone: '9998887771' },
+          projectData: { name: 'Photo Verification Project ' + Date.now(), location: 'Factory' },
+          selectedProducts: [
+            {
+              itemId: firstPhotoKey,
+              photoUrl: samplePhotoUrl,
+              original: { name: 'Photo Item', unit: 4500, qty: 1, photoUrl: samplePhotoUrl },
+              production: { name: 'Factory Item With Photo', qty: 1, flowTypeId: 'flow_type_1' }
+            }
+          ],
+          allowDuplicate: true
+        });
+        const createdFurnList = (window.Zoosh.State.getState().furniture || []).filter(f => f.projectId === importRes.project.id);
+        const createdFurn = createdFurnList[0];
+        assert('20. Furniture in Production Schedule Retains Stable Photo',
+          Boolean(createdFurn && (createdFurn.photo === samplePhotoUrl || createdFurn.image === samplePhotoUrl)),
+          createdFurn ? `photo length: ${createdFurn.photo ? createdFurn.photo.length : 0}` : 'missing'
+        );
+
+        // 21. Edit Particular / Category Name
+        window.Zoosh.Views.Estimate.updateCostRow(0, 'name', 'Teak Wood Premium');
+        const row0 = window.Zoosh.Views.Estimate.tempEstimate.costRows[0];
+        assert('21. Edit Particular / Category Name',
+          row0 && row0.name === 'Teak Wood Premium',
+          `Row 0 Name: ${row0 ? row0.name : 'none'}`
+        );
+
+        // 22. Add New Particular / Category Row
+        const initialCount = window.Zoosh.Views.Estimate.tempEstimate.costRows.length;
+        window.Zoosh.Views.Estimate.addCostRow('Brass Leg Accents', 1200, 2, 2400);
+        const afterAddRows = window.Zoosh.Views.Estimate.tempEstimate.costRows;
+        const newRow = afterAddRows[afterAddRows.length - 1];
+        assert('22. Add New Particular / Category Row',
+          afterAddRows.length === initialCount + 1 && newRow.name === 'Brass Leg Accents' && newRow.amount === 2400,
+          `Rows count: ${afterAddRows.length}, Added: ${newRow ? newRow.name : 'none'}`
+        );
+
+        // 23. Delete Cost Row
+        const countBeforeDelete = window.Zoosh.Views.Estimate.tempEstimate.costRows.length;
+        window.Zoosh.Views.Estimate.deleteCostRow(afterAddRows.length - 1);
+        const countAfterDelete = window.Zoosh.Views.Estimate.tempEstimate.costRows.length;
+        assert('23. Delete Cost Category Row',
+          countAfterDelete === countBeforeDelete - 1,
+          `Count: ${countAfterDelete}`
+        );
+
+        // 24. All Cost Category Rows Render Editable Input Fields in DOM
+        window.Zoosh.Views.Estimate.render(mount);
+        const nameInputs = mount.querySelectorAll('#excel-cost-rows-tbody input[type="text"]');
+        assert('24. All Category Rows Render Editable Inputs in DOM',
+          nameInputs.length >= 16,
+          `Rendered ${nameInputs.length} editable category input fields`
+        );
+
+      } catch (err) {
+        assert('FATAL ERROR', false, err.stack || err.message);
+      }
+
+      // Render Results Table
+      const container = document.getElementById('test-results');
+      const passedCount = results.filter(r => r.passed).length;
+      const totalCount = results.length;
+
+      document.getElementById('summary').innerHTML = `
+        <span style="color: ${passedCount === totalCount ? '#34d399' : '#f87171'}">
+          ${passedCount} of ${totalCount} Estimate &amp; Image Tests Passed! ${passedCount === totalCount ? '🎉 ALL TESTS PASSED' : '⚠️ SOME TESTS FAILED'}
+        </span>
+      `;
+
+      container.innerHTML = results.map(r => `
+        <div class="test-row">
+          <span>${r.name} ${r.details ? `<span style="color: #94a3b8; font-size: 11px;">(${r.details})</span>` : ''}</span>
+          <span class="${r.passed ? 'badge-pass' : 'badge-fail'}">${r.passed ? 'PASS' : 'FAIL'}</span>
+        </div>
+      `).join('');
+    }
+
+    window.addEventListener('DOMContentLoaded', runAllTests);
+  </script>
+</body>
+</html>

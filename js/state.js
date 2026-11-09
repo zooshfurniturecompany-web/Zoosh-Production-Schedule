@@ -82,6 +82,19 @@ window.Zoosh.State = {
       this._state.reminders = defaultState.reminders || [];
     }
 
+    // Ensure quotation tracking map exists
+    if (!this._state.quotationTracking) {
+      this._state.quotationTracking = {};
+    }
+
+    // Ensure estimates map exists
+    if (!this._state.estimates) {
+      this._state.estimates = {};
+    }
+
+    // Ensure sample Ansar Changaramkulam project is seeded for excel estimate verification
+    this._seedAnsarChangaramkulamDemo();
+
     // Ensure product codes follow CLIENTCODE 001 format
     this._migrateProductCodes();
 
@@ -460,7 +473,8 @@ window.Zoosh.State = {
       notes: projectData.notes || '',
       furnitureIds: [],
       srlIds: [],
-      isDelivered: false
+      isDelivered: false,
+      quotationRef: projectData.quotationRef || null
     };
 
     this._state.projects = this._state.projects || [];
@@ -572,6 +586,7 @@ window.Zoosh.State = {
     });
 
     const productCode = (furnitureData.productCode || furnitureData.itemCode || this.getNextProductCode(furnitureData.projectId)).trim();
+    const productPhoto = furnitureData.photo || furnitureData.image || (furnitureData.originalQuotationData && furnitureData.originalQuotationData.photoUrl) || null;
 
     const newFurniture = {
       id: furnId,
@@ -580,13 +595,17 @@ window.Zoosh.State = {
       itemCode: productCode,
       name: furnitureName,
       furnitureName: furnitureName, // backward compatibility alias
+      photo: productPhoto,
+      image: productPhoto,
       flowTypeId: furnitureData.flowTypeId || null,
       flowSource: furnitureData.flowSource || (furnitureData.flow ? furnitureData.flow.source : 'PRESET'),
       flow: furnitureData.flow || null,
       qty: parseInt(furnitureData.qty, 10) || 1,
       startDate: furnitureData.startDate || window.Zoosh.Config.CURRENT_DATE,
       status: 'NOT_STARTED',
-      processIds: newProcesses.map(p => p.id)
+      processIds: newProcesses.map(p => p.id),
+      originalQuotationData: furnitureData.originalQuotationData || null,
+      manufacturing: furnitureData.manufacturing || null
     };
 
     this._state.furniture = this._state.furniture || [];
@@ -954,7 +973,9 @@ window.Zoosh.State = {
       employees: this._state.employees || [],
       flowTypes: this._state.flowTypes || [],
       manpowerRecords: this._state.manpowerRecords || [],
-      reminders: this._state.reminders || []
+      reminders: this._state.reminders || [],
+      quotationTracking: this._state.quotationTracking || {},
+      estimates: this._state.estimates || {}
     };
 
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportPayload, null, 2));
@@ -980,6 +1001,12 @@ window.Zoosh.State = {
       if (!this._state.reminders) {
         this._state.reminders = [];
       }
+      if (!this._state.quotationTracking) {
+        this._state.quotationTracking = {};
+      }
+      if (!this._state.estimates) {
+        this._state.estimates = {};
+      }
       this._syncFurnitureAliases();
       this.touchDataUpdated();
       this.recalculate();
@@ -987,5 +1014,618 @@ window.Zoosh.State = {
     } catch (err) {
       return { success: false, error: err.message };
     }
+  },
+
+  // ==========================================
+  // 8. ON-DEMAND QUOTATION TRACKING & IMPORT
+  // ==========================================
+
+  getQuotationTracking(quotationId) {
+    if (!this._state) return null;
+    this._state.quotationTracking = this._state.quotationTracking || {};
+
+    const record = this._state.quotationTracking[quotationId] || {
+      quotationId: quotationId,
+      conversionStatus: 'NOT_REVIEWED',
+      importStatus: 'NOT_IMPORTED',
+      linkedProjectIds: [],
+      importedItemIds: [],
+      importedAt: null,
+      notes: ''
+    };
+
+    // Dynamically cross-check with existing projects to guarantee accuracy
+    const linkedProjects = (this._state.projects || []).filter(p => 
+      p.quotationRef && String(p.quotationRef.quotationId) === String(quotationId)
+    );
+
+    if (linkedProjects.length > 0) {
+      record.importStatus = 'IMPORTED';
+      record.linkedProjectIds = Array.from(new Set([...(record.linkedProjectIds || []), ...linkedProjects.map(p => p.id)]));
+    }
+
+    return record;
+  },
+
+  getAllQuotationTrackings() {
+    return (this._state && this._state.quotationTracking) || {};
+  },
+
+  setQuotationConversionStatus(quotationId, status, meta = {}) {
+    this._checkPermission('edit');
+    if (!this._state) return null;
+
+    const validStatuses = ['NOT_REVIEWED', 'CONVERTED', 'NOT_CONVERTED'];
+    const finalStatus = validStatuses.includes(status) ? status : 'NOT_REVIEWED';
+
+    this._state.quotationTracking = this._state.quotationTracking || {};
+    const existing = this.getQuotationTracking(quotationId);
+
+    this._state.quotationTracking[quotationId] = {
+      ...existing,
+      conversionStatus: finalStatus,
+      quotationNo: meta.no || existing.quotationNo || '',
+      clientName: meta.clientName || existing.clientName || '',
+      date: meta.date || existing.date || '',
+      grandTotal: meta.grandTotal !== undefined ? meta.grandTotal : existing.grandTotal,
+      updatedAt: new Date().toISOString()
+    };
+
+    this.persist();
+    this.touchDataUpdated();
+    this.notify();
+    return this._state.quotationTracking[quotationId];
+  },
+
+  checkQuotationImported(quotationId) {
+    if (!this._state) return { isImported: false, projects: [] };
+
+    const linkedProjects = (this._state.projects || []).filter(p => 
+      p.quotationRef && String(p.quotationRef.quotationId) === String(quotationId)
+    );
+
+    return {
+      isImported: linkedProjects.length > 0,
+      projects: linkedProjects
+    };
+  },
+
+  /**
+   * Imports selected products from a quotation into a new production project.
+   * Preserves original quotation data as read-only reference while establishing
+   * separate editable manufacturing specifications.
+   */
+  importProjectFromQuotation(payload) {
+    this._checkPermission('create');
+
+    const quotation = payload.quotation;
+    if (!quotation || !quotation.id) {
+      throw new Error('Valid quotation information is required for import.');
+    }
+
+    const quotationId = String(quotation.id);
+
+    // Duplicate check
+    const duplicateCheck = this.checkQuotationImported(quotationId);
+    if (duplicateCheck.isImported && !payload.allowDuplicate) {
+      return {
+        success: false,
+        duplicate: true,
+        message: `Quotation ${quotation.no} is already imported into project "${duplicateCheck.projects[0].name}".`,
+        existingProjects: duplicateCheck.projects
+      };
+    }
+
+    // 1. Resolve or Create Client
+    let targetClient = null;
+    const clientData = payload.clientData || {};
+    const cleanPhone = (clientData.phone || '').replace(/\D/g, '');
+    const cleanName = (clientData.name || '').trim().toLowerCase();
+
+    const existingClients = this._state.clients || [];
+
+    // Match by phone first if available, then by exact name
+    if (cleanPhone && cleanPhone.length >= 7) {
+      targetClient = existingClients.find(c => {
+        const cPhone = (c.phone || '').replace(/\D/g, '');
+        return cPhone && cPhone.includes(cleanPhone);
+      });
+    }
+
+    if (!targetClient && cleanName) {
+      targetClient = existingClients.find(c => (c.name || '').trim().toLowerCase() === cleanName);
+    }
+
+    // If client does not exist, create client
+    if (!targetClient) {
+      const generatedCode = clientData.code || clientData.clientCode || this.generateClientCode(clientData.name || 'Client');
+      targetClient = this.addClient({
+        name: clientData.name || 'Imported Client',
+        code: generatedCode,
+        clientCode: generatedCode,
+        location: clientData.location || '',
+        phone: clientData.phone || '',
+        notes: `Imported from Quotation ${quotation.no}`
+      });
+    }
+
+    // 2. Create Project
+    const projData = payload.projectData || {};
+    const projName = projData.name || `${targetClient.name} - ${quotation.no}`;
+    
+    const newProject = this.addProject({
+      clientId: targetClient.id,
+      name: projName,
+      location: projData.location || targetClient.location || 'Factory Floor',
+      confirmedDate: projData.confirmedDate || window.Zoosh.Config.CURRENT_DATE,
+      deliveryDeadline: projData.deliveryDeadline || this._calculateDefaultDeadline(14),
+      notes: projData.notes || `Imported on ${new Date().toLocaleDateString()} from Quotation ${quotation.no}.`,
+      quotationRef: {
+        quotationId: quotationId,
+        quotationNo: quotation.no,
+        importedAt: new Date().toISOString(),
+        grandTotal: quotation.totals ? quotation.totals.grandTotal : 0
+      }
+    });
+
+    // 3. Create Furniture Items with Strict Data Separation
+    const selectedProducts = payload.selectedProducts || [];
+    const createdFurniture = [];
+
+    selectedProducts.forEach((prod) => {
+      const orig = prod.original || {};
+      const mfg = prod.production || {};
+
+      // Build process stages for this furniture item
+      let processesList = [];
+      if (mfg.flowTypeId && window.Zoosh.ProcessFlow) {
+        try {
+          const flowInstance = window.Zoosh.ProcessFlow.instantiatePreset(
+            mfg.flowTypeId,
+            newProject.confirmedDate || window.Zoosh.Config.CURRENT_DATE
+          );
+          if (flowInstance && Array.isArray(flowInstance.nodes)) {
+            // Keep employee assignments unassigned by default for factory manager to assign
+            processesList = flowInstance.nodes.map(n => ({
+              ...n,
+              employeeId: null
+            }));
+          }
+        } catch (e) {
+          console.warn('Could not instantiate preset flow:', e);
+        }
+      }
+
+      const itemPhoto = orig.photoUrl || prod.photoUrl || prod.photo || (quotation.itemPhotos && quotation.itemPhotos[prod.itemId]) || null;
+
+      const originalQuotationData = {
+        quotationId: quotationId,
+        quotationNo: quotation.no,
+        itemId: prod.itemId,
+        originalName: orig.name || '',
+        originalSpec: orig.spec || '',
+        originalMeasurements: orig.measurements || '',
+        originalQty: orig.qty || 1,
+        originalUtype: orig.utype || 'nos',
+        originalRate: orig.unit || 0,
+        originalTotal: orig.total || 0,
+        photoUrl: itemPhoto
+      };
+
+      const manufacturingSpecs = {
+        measurements: mfg.measurements || '',
+        woodType: mfg.woodType || '',
+        structure: mfg.structure || '',
+        foam: mfg.foam || '',
+        fabric: mfg.fabric || '',
+        notes: mfg.notes || ''
+      };
+
+      const furnData = {
+        projectId: newProject.id,
+        name: (mfg.name || orig.name || 'Imported Product').trim(),
+        qty: parseInt(mfg.qty, 10) || parseInt(orig.qty, 10) || 1,
+        startDate: newProject.confirmedDate || window.Zoosh.Config.CURRENT_DATE,
+        flowTypeId: mfg.flowTypeId || null,
+        photo: itemPhoto,
+        image: itemPhoto,
+        originalQuotationData: originalQuotationData,
+        manufacturing: manufacturingSpecs
+      };
+
+      const newFurniture = this.addFurniture(furnData, processesList);
+      createdFurniture.push(newFurniture);
+    });
+
+    // 4. Update Quotation Tracking
+    this._state.quotationTracking = this._state.quotationTracking || {};
+    const existingTrack = this.getQuotationTracking(quotationId);
+
+    const allQuotationItemsCount = (quotation.items || []).length;
+    const isFullImport = selectedProducts.length >= allQuotationItemsCount;
+
+    this._state.quotationTracking[quotationId] = {
+      ...existingTrack,
+      quotationId: quotationId,
+      quotationNo: quotation.no,
+      clientName: targetClient.name,
+      conversionStatus: 'CONVERTED',
+      importStatus: isFullImport ? 'IMPORTED' : 'PARTIALLY_IMPORTED',
+      importedAt: new Date().toISOString(),
+      linkedProjectIds: Array.from(new Set([...(existingTrack.linkedProjectIds || []), newProject.id])),
+      importedItemIds: Array.from(new Set([...(existingTrack.importedItemIds || []), ...selectedProducts.map(p => p.itemId)])),
+      updatedAt: new Date().toISOString()
+    };
+
+    this.touchDataUpdated();
+    this.recalculate();
+
+    return {
+      success: true,
+      project: newProject,
+      client: targetClient,
+      furnitureCount: createdFurniture.length
+    };
+  },
+
+  _calculateDefaultDeadline(daysFromNow = 14) {
+    const d = new Date();
+    d.setDate(d.getDate() + daysFromNow);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  },
+
+  // ==========================================
+  // 9. EXCEL-STYLE ESTIMATE MODULE STATE
+  // ==========================================
+
+  STANDARD_COST_CATEGORIES: [
+    { id: 'mahogany', name: 'Mahogany', defaultRate: 2500, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'wood_ash', name: 'Wood Ash', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'carpenter', name: 'Carpenter', defaultRate: 3000, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'polish_material', name: 'Polish Material', defaultRate: 1500, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'polish_labour', name: 'Polish Labour', defaultRate: 2400, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'foam', name: 'Foam', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'fabric', name: 'Fabric', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'upholstery_labour', name: 'Upholstery Labour', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'packing', name: 'Packing', defaultRate: 250, defaultQty: 1, defaultAmount: 250, isDirect: true },
+    { id: 'factory_expense', name: 'Factory Expense', defaultRate: 500, defaultQty: 1, defaultAmount: 500, isDirect: true },
+    { id: 'metal_work', name: 'Metal Work', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'rattan', name: 'Rattan', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'rope', name: 'Rope', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'consumables', name: 'Consumables', defaultRate: 30, defaultQty: 1, defaultAmount: 30, isDirect: true },
+    { id: 'ar_marble', name: 'Ar. Marble', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'plywood', name: 'Plywood', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false }
+  ],
+
+  getDefaultEstimate(furnitureId) {
+    const furn = this.getFurniture(furnitureId) || {};
+    const proj = (this._state.projects || []).find(p => p.id === furn.projectId) || {};
+    const client = (this._state.clients || []).find(c => c.id === proj.clientId) || {};
+
+    const costRows = this.STANDARD_COST_CATEGORIES.map(cat => ({
+      id: cat.id,
+      name: cat.name,
+      rate: cat.defaultRate,
+      qty: cat.defaultQty,
+      amount: cat.defaultAmount,
+      isDirect: cat.isDirect
+    }));
+
+    const qty = parseInt(furn.qty, 10) || 1;
+
+    return {
+      furnitureId: furnitureId,
+      projectId: furn.projectId || null,
+      clientName: client.name || proj.clientName || 'Client',
+      projectName: proj.name || 'Project',
+      productNo: furn.productCode || furn.itemCode || '1',
+      productName: furn.name || furn.furnitureName || 'Product',
+      productQty: qty,
+      estimateDate: window.Zoosh.Config.CURRENT_DATE,
+      photo: furn.photo || furn.image || (furn.originalQuotationData && furn.originalQuotationData.photoUrl) || null,
+      selectedProfitTier: '25',
+      customProfitPercent: 25,
+      costRows: costRows,
+      woodRows: [
+        { part: 'Part 1', length: 2.25, width: 2.5, thickness: 2.5, qty: 2, cft: 0.1953 }
+      ],
+      totals: {
+        unitWoodCft: 0.1953,
+        totalWoodCft: Math.round(0.1953 * qty * 1000) / 1000,
+        unitCost: 780,
+        totalCost: 780 * qty,
+        profit25: Math.round(780 * qty * 0.25),
+        profit30: Math.round(780 * qty * 0.30),
+        customProfitPercent: 25,
+        customProfitAmount: Math.round(780 * qty * 0.25),
+        unitSellingPrice: Math.round((780 * qty * 1.25) / qty),
+        totalSellingPrice: Math.round(780 * qty * 1.25)
+      },
+      isSaved: false
+    };
+  },
+
+  getEstimate(furnitureId) {
+    this._state.estimates = this._state.estimates || {};
+    if (this._state.estimates[furnitureId]) {
+      return JSON.parse(JSON.stringify(this._state.estimates[furnitureId]));
+    }
+    return this.getDefaultEstimate(furnitureId);
+  },
+
+  saveEstimate(furnitureId, estimateData) {
+    this._checkPermission('edit');
+    this._state.estimates = this._state.estimates || {};
+
+    const cleanData = JSON.parse(JSON.stringify(estimateData));
+    cleanData.isSaved = true;
+    cleanData.updatedAt = new Date().toISOString();
+
+    this._state.estimates[furnitureId] = cleanData;
+
+    // Sync furniture photo/image if updated in estimate
+    const furn = this.getFurniture(furnitureId);
+    if (furn && cleanData.photo) {
+      furn.photo = cleanData.photo;
+      furn.image = cleanData.photo;
+    }
+
+    this.touchDataUpdated();
+    this.persist();
+    this.notify();
+
+    return cleanData;
+  },
+
+  deleteEstimate(furnitureId) {
+    this._checkPermission('edit');
+    this._state.estimates = this._state.estimates || {};
+    delete this._state.estimates[furnitureId];
+
+    this.touchDataUpdated();
+    this.persist();
+    this.notify();
+  },
+
+  getProjectEstimatesSummary(projectId) {
+    const furnitureList = (this._state.furniture || this._state.srls || []).filter(f => f.projectId === projectId);
+    this._state.estimates = this._state.estimates || {};
+
+    let totalMfgCost = 0;
+    let totalSellingValue = 0;
+    let totalWoodCft = 0;
+    let estimatedCount = 0;
+
+    const items = furnitureList.map((furn, idx) => {
+      const isSaved = Boolean(this._state.estimates[furn.id] && this._state.estimates[furn.id].isSaved !== false);
+      const est = isSaved ? this._state.estimates[furn.id] : this.getDefaultEstimate(furn.id);
+
+      if (isSaved) {
+        estimatedCount++;
+      }
+
+      const itemQty = parseInt(furn.qty, 10) || parseInt(est.productQty, 10) || 1;
+      const unitCost = (est.totals && est.totals.unitCost) || 0;
+      const totalCost = (est.totals && est.totals.totalCost) !== undefined ? est.totals.totalCost : (unitCost * itemQty);
+      const totalSelling = (est.totals && est.totals.totalSellingPrice) || Math.round(totalCost * 1.25);
+      const woodCft = (est.totals && est.totals.totalWoodCft) || 0;
+
+      totalMfgCost += totalCost;
+      totalSellingValue += totalSelling;
+      totalWoodCft += woodCft;
+
+      return {
+        furniture: furn,
+        estimate: est,
+        isSaved: isSaved,
+        itemIndex: idx + 1,
+        qty: itemQty,
+        unitCost: unitCost,
+        totalCost: totalCost,
+        totalSelling: totalSelling,
+        profit: totalSelling - totalCost,
+        profitMargin: totalCost > 0 ? Math.round(((totalSelling - totalCost) / totalCost) * 100) : 0,
+        woodCft: woodCft
+      };
+    });
+
+    const totalProfit = totalSellingValue - totalMfgCost;
+    const overallProfitMargin = totalMfgCost > 0 ? Math.round((totalProfit / totalMfgCost) * 1000) / 10 : 0;
+
+    return {
+      projectId: projectId,
+      totalProducts: furnitureList.length,
+      estimatedCount: estimatedCount,
+      totalMfgCost: Math.round(totalMfgCost),
+      totalSellingValue: Math.round(totalSellingValue),
+      totalProfit: Math.round(totalProfit),
+      overallProfitMargin: overallProfitMargin,
+      totalWoodCft: Math.round(totalWoodCft * 1000) / 1000,
+      items: items
+    };
+  },
+
+  _seedAnsarChangaramkulamDemo() {
+    if (!this._state || !this._state.projects) return;
+    const exists = this._state.projects.some(p => p.name && p.name.includes('Ansar'));
+    if (exists) return;
+
+    // 1. Add Client
+    const client = {
+      id: 'client_ansar',
+      code: 'ANS',
+      clientCode: 'ANS',
+      srl: 105,
+      name: 'Ansar Changaramkulam',
+      location: 'Changaramkulam',
+      phone: '+91 98474 56789',
+      notes: 'Residential villa furniture project: Living Room, Dining & Sitout'
+    };
+    this._state.clients = this._state.clients || [];
+    this._state.clients.push(client);
+
+    // 2. Add Project
+    const proj = {
+      id: 'proj_ansar',
+      clientId: 'client_ansar',
+      clientSrl: 105,
+      clientName: 'Ansar Changaramkulam',
+      name: 'Ansar Changaramkulam',
+      location: 'Changaramkulam',
+      confirmedDate: '2026-11-01',
+      deliveryDeadline: '2026-11-30',
+      notes: 'Custom villa project: Sofa, Dining Table, Dining Chair, Sitout Chair.',
+      furnitureIds: ['furn_ansar_sofa', 'furn_ansar_dining_table', 'furn_ansar_dining_chair', 'furn_ansar_sitout_chair'],
+      srlIds: ['furn_ansar_sofa', 'furn_ansar_dining_table', 'furn_ansar_dining_chair', 'furn_ansar_sitout_chair'],
+      isDelivered: false
+    };
+    this._state.projects.push(proj);
+
+    // 3. Add 4 Products
+    const sampleChairImage = 'public/sample_chair.jpeg';
+
+    const sofaItem = {
+      id: 'furn_ansar_sofa',
+      projectId: 'proj_ansar',
+      productCode: 'ANS 001',
+      itemCode: 'ANS 001',
+      name: 'Sofa',
+      furnitureName: 'Sofa',
+      flowTypeId: 'flow_type_2',
+      qty: 1,
+      startDate: '2026-11-01',
+      status: 'IN_PROGRESS',
+      photo: null,
+      image: null,
+      processIds: ['proc_ansar_sofa_1', 'proc_ansar_sofa_2', 'proc_ansar_sofa_3']
+    };
+
+    const diningTableItem = {
+      id: 'furn_ansar_dining_table',
+      projectId: 'proj_ansar',
+      productCode: 'ANS 002',
+      itemCode: 'ANS 002',
+      name: 'Dining Table',
+      furnitureName: 'Dining Table',
+      flowTypeId: 'flow_type_1',
+      qty: 1,
+      startDate: '2026-11-01',
+      status: 'IN_PROGRESS',
+      photo: null,
+      image: null,
+      processIds: ['proc_ansar_dt_1', 'proc_ansar_dt_2']
+    };
+
+    const diningChairItem = {
+      id: 'furn_ansar_dining_chair',
+      projectId: 'proj_ansar',
+      productCode: 'ANS 003',
+      itemCode: 'ANS 003',
+      name: 'Dining Chair',
+      furnitureName: 'Dining Chair',
+      flowTypeId: 'flow_type_2',
+      qty: 6,
+      startDate: '2026-11-01',
+      status: 'IN_PROGRESS',
+      photo: null,
+      image: null,
+      processIds: ['proc_ansar_dc_1', 'proc_ansar_dc_2', 'proc_ansar_dc_3']
+    };
+
+    const sitoutChairItem = {
+      id: 'furn_ansar_sitout_chair',
+      projectId: 'proj_ansar',
+      productCode: 'ANS 004',
+      itemCode: 'ANS 004',
+      name: 'Sitout Chair',
+      furnitureName: 'Sitout Chair',
+      flowTypeId: 'flow_type_1',
+      qty: 2,
+      startDate: '2026-11-01',
+      status: 'IN_PROGRESS',
+      photo: sampleChairImage,
+      image: sampleChairImage,
+      processIds: ['proc_ansar_sc_1', 'proc_ansar_sc_2']
+    };
+
+    this._state.furniture = this._state.furniture || [];
+    this._state.furniture.push(sofaItem, diningTableItem, diningChairItem, sitoutChairItem);
+    this._state.srls = this._state.furniture;
+
+    // 4. Processes for scheduling
+    const procs = [
+      { id: 'proc_ansar_sofa_1', furnitureId: 'furn_ansar_sofa', projectId: 'proj_ansar', department: 'Carpentry', sequence: 1, durationDays: 3, lane: 1, employeeId: 'emp_rajan', status: 'IN_PROGRESS', progressPercent: 40, dependencyIds: [], relationType: 'START' },
+      { id: 'proc_ansar_sofa_2', furnitureId: 'furn_ansar_sofa', projectId: 'proj_ansar', department: 'Polish', sequence: 2, durationDays: 2, lane: 1, employeeId: 'emp_rajesh', status: 'PENDING', progressPercent: 0, dependencyIds: ['proc_ansar_sofa_1'], relationType: 'AFTER' },
+      { id: 'proc_ansar_sofa_3', furnitureId: 'furn_ansar_sofa', projectId: 'proj_ansar', department: 'Upholstery', sequence: 3, durationDays: 2, lane: 1, employeeId: 'emp_saddique', status: 'PENDING', progressPercent: 0, dependencyIds: ['proc_ansar_sofa_2'], relationType: 'AFTER' },
+      { id: 'proc_ansar_dt_1', furnitureId: 'furn_ansar_dining_table', projectId: 'proj_ansar', department: 'Carpentry', sequence: 1, durationDays: 4, lane: 1, employeeId: 'emp_satheesh', status: 'IN_PROGRESS', progressPercent: 50, dependencyIds: [], relationType: 'START' },
+      { id: 'proc_ansar_dt_2', furnitureId: 'furn_ansar_dining_table', projectId: 'proj_ansar', department: 'Polish', sequence: 2, durationDays: 3, lane: 1, employeeId: 'emp_shaji', status: 'PENDING', progressPercent: 0, dependencyIds: ['proc_ansar_dt_1'], relationType: 'AFTER' },
+      { id: 'proc_ansar_dc_1', furnitureId: 'furn_ansar_dining_chair', projectId: 'proj_ansar', department: 'Carpentry', sequence: 1, durationDays: 3, lane: 1, employeeId: 'emp_sasi', status: 'IN_PROGRESS', progressPercent: 30, dependencyIds: [], relationType: 'START' },
+      { id: 'proc_ansar_dc_2', furnitureId: 'furn_ansar_dining_chair', projectId: 'proj_ansar', department: 'Polish', sequence: 2, durationDays: 2, lane: 1, employeeId: 'emp_pradeep', status: 'PENDING', progressPercent: 0, dependencyIds: ['proc_ansar_dc_1'], relationType: 'AFTER' },
+      { id: 'proc_ansar_dc_3', furnitureId: 'furn_ansar_dining_chair', projectId: 'proj_ansar', department: 'Upholstery', sequence: 3, durationDays: 2, lane: 1, employeeId: 'emp_faizal', status: 'PENDING', progressPercent: 0, dependencyIds: ['proc_ansar_dc_2'], relationType: 'AFTER' },
+      { id: 'proc_ansar_sc_1', furnitureId: 'furn_ansar_sitout_chair', projectId: 'proj_ansar', department: 'Carpentry', sequence: 1, durationDays: 2, lane: 1, employeeId: 'emp_santhosh', status: 'COMPLETED', progressPercent: 100, dependencyIds: [], relationType: 'START' },
+      { id: 'proc_ansar_sc_2', furnitureId: 'furn_ansar_sitout_chair', projectId: 'proj_ansar', department: 'Polish', sequence: 2, durationDays: 2, lane: 1, employeeId: 'emp_murali', status: 'IN_PROGRESS', progressPercent: 60, dependencyIds: ['proc_ansar_sc_1'], relationType: 'AFTER' }
+    ];
+    this._state.processes = this._state.processes || [];
+    this._state.processes.push(...procs);
+
+    // 5. Preload Sitout Chair Excel Estimate from uploaded spreadsheet samle estimate.xlsx
+    this._state.estimates = this._state.estimates || {};
+    this._state.estimates['furn_ansar_sitout_chair'] = {
+      furnitureId: 'furn_ansar_sitout_chair',
+      projectId: 'proj_ansar',
+      clientName: 'Ansar Changaramkulam',
+      projectName: 'Ansar Changaramkulam',
+      productNo: 1,
+      productName: 'Sitout Chair',
+      productQty: 2,
+      estimateDate: '2026-11-01',
+      photo: sampleChairImage,
+      selectedProfitTier: '25',
+      customProfitPercent: 25,
+      costRows: [
+        { id: 'mahogany', name: 'Mahogany', rate: 2500, qty: 1.408, amount: 3520, isDirect: false },
+        { id: 'wood_ash', name: 'Wood Ash', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'carpenter', name: 'Carpenter', rate: 3000, qty: 1, amount: 3000, isDirect: false },
+        { id: 'polish_material', name: 'Polish Material', rate: 1500, qty: 1, amount: 1500, isDirect: false },
+        { id: 'polish_labour', name: 'Polish Labour', rate: 2400, qty: 1, amount: 2400, isDirect: false },
+        { id: 'foam', name: 'Foam', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'fabric', name: 'Fabric', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'upholstery_labour', name: 'Upholstery Labour', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'packing', name: 'Packing', rate: 250, qty: 1, amount: 250, isDirect: true },
+        { id: 'factory_expense', name: 'Factory Expense', rate: 500, qty: 1, amount: 500, isDirect: true },
+        { id: 'metal_work', name: 'Metal Work', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'rattan', name: 'Rattan', rate: 470, qty: 2, amount: 940, isDirect: false },
+        { id: 'rope', name: 'Rope', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'consumables', name: 'Consumables', rate: 30, qty: 1, amount: 30, isDirect: true },
+        { id: 'ar_marble', name: 'Ar. Marble', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'plywood', name: 'Plywood', rate: 0, qty: 0, amount: 0, isDirect: false }
+      ],
+      woodRows: [
+        { part: 'Piece 1 (Back Rest Plank)', length: 4, width: 10, thickness: 1.5, qty: 1, cft: 0.4167 },
+        { part: 'Piece 2 (Seat Rail)', length: 1.5, width: 7, thickness: 1.5, qty: 1, cft: 0.1094 },
+        { part: 'Piece 3 (Leg Posts)', length: 2, width: 2.5, thickness: 1.5, qty: 4, cft: 0.2083 },
+        { part: 'Piece 4 (Main Uprights)', length: 2, width: 2.5, thickness: 2, qty: 4, cft: 0.2778 },
+        { part: 'Piece 5 (Cross Stretchers)', length: 2, width: 2.5, thickness: 1.5, qty: 2, cft: 0.1042 },
+        { part: 'Piece 6 (Seat Base Plank)', length: 2, width: 11, thickness: 1.5, qty: 1, cft: 0.2292 },
+        { part: 'Piece 7 (Arm Supports)', length: 2, width: 1.5, thickness: 1.5, qty: 2, cft: 0.0625 }
+      ],
+      totals: {
+        unitWoodCft: 1.408,
+        totalWoodCft: 2.816,
+        unitCost: 12140,
+        totalCost: 24280,
+        profit25: 6070,
+        profit30: 7284,
+        customProfitPercent: 25,
+        customProfitAmount: 6070,
+        unitSellingPrice: 15175,
+        totalSellingPrice: 30350
+      },
+      isSaved: true,
+      updatedAt: '2026-11-01T10:00:00.000Z'
+    };
   }
 };
