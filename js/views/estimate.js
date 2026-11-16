@@ -20,6 +20,35 @@ window.Zoosh.Views.Estimate = {
   activeTab: 'sheet', // 'sheet' | 'summary' | 'print'
   tempEstimate: null,
 
+  CATEGORY_SECTIONS: [
+    { key: 'wood', title: 'Wood Species / Timber Options', icon: '🪵' },
+    { key: 'carpentry', title: 'Carpentry & Structural', icon: '🔨' },
+    { key: 'polish', title: 'Finishing & Polish', icon: '✨' },
+    { key: 'upholstery', title: 'Upholstery & Soft Furnishing', icon: '🛋️' },
+    { key: 'overheads', title: 'Factory Overheads & Packaging', icon: '📦' }
+  ],
+
+  getCategoryKey(row) {
+    if (!row) return 'overheads';
+    const cat = (row.category || '').toLowerCase();
+    const name = (row.name || '').toLowerCase();
+    const id = (row.id || '').toLowerCase();
+
+    if (cat.includes('wood') || cat.includes('timber') || id === 'mahogany' || id === 'wood_ash' || id === 'teak' || name.includes('mahogany') || name.includes('wood ash') || name.includes('teak') || name.includes('timber')) {
+      return 'wood';
+    }
+    if (cat.includes('carpenter') || cat.includes('structural') || id === 'carpenter' || id === 'plywood' || id === 'metal_work' || name.includes('carpenter') || name.includes('plywood') || name.includes('metal')) {
+      return 'carpentry';
+    }
+    if (cat.includes('polish') || cat.includes('finish') || id === 'polish_material' || id === 'polish_labour' || name.includes('polish')) {
+      return 'polish';
+    }
+    if (cat.includes('upholstery') || cat.includes('soft') || id === 'foam' || id === 'fabric' || id === 'upholstery_labour' || id === 'rattan' || id === 'rope' || name.includes('foam') || name.includes('fabric') || name.includes('upholstery') || name.includes('rattan') || name.includes('rope')) {
+      return 'upholstery';
+    }
+    return 'overheads';
+  },
+
   openProject(projectId) {
     this.activeProjectId = projectId;
     const project = (window.Zoosh.State.getState().projects || []).find(p => p.id === projectId);
@@ -875,72 +904,122 @@ window.Zoosh.Views.Estimate = {
                   </tr>
                 </thead>
                 <tbody id="excel-cost-rows-tbody">
-                  ${costRows.map((row, idx) => {
-                    const rowNameEsc = (row.name || '').replace(/"/g, '&quot;');
+                  ${this.CATEGORY_SECTIONS.map(section => {
+                    const sectionRows = costRows.filter(r => this.getCategoryKey(r) === section.key);
+                    if (sectionRows.length === 0) return '';
+                    const sectionSubtotal = section.key === 'wood' 
+                      ? (totals.catSubtotals && totals.catSubtotals.wood || 0)
+                      : sectionRows.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+
                     return `
-                      <tr style="border-bottom: 1px solid #f1f5f9;">
-                        <td style="text-align: center; color: var(--text-muted); font-size: 11px; padding: 6px; font-family: var(--font-mono);">
-                          ${idx + 1}
+                      <tr class="cost-section-header" style="background: #f1f5f9; border-top: 1.5px solid #cbd5e1; border-bottom: 1px solid #e2e8f0;">
+                        <td colspan="2" style="padding: 6px 10px; font-size: 11px; font-weight: 800; color: #1e293b; letter-spacing: 0.02em;">
+                          <span style="font-size: 12px; margin-right: 4px;">${section.icon}</span> ${section.title}
                         </td>
-                        <td style="padding: 4px 8px;">
-                          <input 
-                            type="text" 
-                            id="cost-name-${idx}"
-                            list="cost-category-suggestions"
-                            class="form-input" 
-                            value="${rowNameEsc}" 
-                            placeholder="Enter particular / category..."
-                            oninput="window.Zoosh.Views.Estimate.updateCostRowName(${idx}, this.value)"
-                            onchange="window.Zoosh.Views.Estimate.updateCostRow(${idx}, 'name', this.value)"
-                            style="padding: 3px 8px; font-size: 12.5px; font-weight: 600; width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; background: #ffffff; color: var(--text-main);"
-                          />
+                        <td colspan="2" style="padding: 6px 8px; font-size: 10.5px; color: #64748b; text-align: right;">
+                          ${section.key === 'wood' ? 'Active Wood Cost:' : 'Category Subtotal:'}
                         </td>
-                        <td style="padding: 4px 6px; text-align: right;">
-                          <input 
-                            type="number" 
-                            step="any"
-                            id="cost-rate-${idx}"
-                            class="form-input" 
-                            value="${row.rate || 0}" 
-                            oninput="window.Zoosh.Views.Estimate.updateCostRow(${idx}, 'rate', this.value)"
-                            style="padding: 3px 6px; font-size: 12px; font-family: var(--font-mono); text-align: right; width: 80px;"
-                          />
+                        <td id="subtotal-${section.key}" style="padding: 6px 8px; text-align: right; font-size: 11.5px; font-weight: 800; font-family: var(--font-mono); color: #0f172a;">
+                          ₹${Math.round(sectionSubtotal).toLocaleString('en-IN')}
                         </td>
-                        <td style="padding: 4px 6px; text-align: right;">
-                          <input 
-                            type="number" 
-                            step="any"
-                            id="cost-qty-${idx}"
-                            class="form-input" 
-                            value="${row.qty !== undefined ? row.qty : 1}" 
-                            oninput="window.Zoosh.Views.Estimate.updateCostRow(${idx}, 'qty', this.value)"
-                            style="padding: 3px 6px; font-size: 12px; font-family: var(--font-mono); text-align: right; width: 60px;"
-                          />
-                        </td>
-                        <td style="padding: 4px 6px; text-align: right;">
-                          <input 
-                            type="number" 
-                            step="any"
-                            id="cost-amount-${idx}"
-                            class="form-input" 
-                            value="${row.amount || 0}" 
-                            oninput="window.Zoosh.Views.Estimate.updateCostRow(${idx}, 'amount', this.value, true)"
-                            style="padding: 3px 6px; font-size: 12px; font-weight: 700; font-family: var(--font-mono); text-align: right; width: 90px; background: ${row.isDirect ? '#fffbeb' : '#ffffff'};"
-                            title="${row.isDirect ? 'Direct amount entry' : 'Calculated: Rate × Qty'}"
-                          />
-                        </td>
-                        <td style="text-align: center; padding: 4px;">
-                          <button 
-                            type="button"
-                            class="btn btn-secondary btn-sm" 
-                            onclick="window.Zoosh.Views.Estimate.deleteCostRow(${idx})"
-                            style="padding: 2px 5px; font-size: 12px; color: #ef4444; border: 1px solid transparent; background: transparent; cursor: pointer; border-radius: 4px; line-height: 1;"
-                            onmouseover="this.style.background='#fee2e2'; this.style.borderColor='#fca5a5'"
-                            onmouseout="this.style.background='transparent'; this.style.borderColor='transparent'"
-                            title="Delete row"
-                          >&times;</button>
-                        </td>
+                        <td></td>
                       </tr>
+
+                      ${sectionRows.map(row => {
+                        const idx = costRows.indexOf(row);
+                        const rowNameEsc = (row.name || '').replace(/"/g, '&quot;');
+                        const isWoodRow = section.key === 'wood';
+                        const isSelectedWood = est.selectedWood === row.id;
+
+                        return `
+                          <tr style="border-bottom: 1px solid #f1f5f9; ${isSelectedWood ? 'background: #eff6ff;' : ''}">
+                            <td style="text-align: center; color: var(--text-muted); font-size: 11px; padding: 6px; font-family: var(--font-mono);">
+                              ${idx + 1}
+                            </td>
+                            <td style="padding: 4px 8px;">
+                              <div style="display: flex; align-items: center; gap: 6px;">
+                                <input 
+                                  type="text" 
+                                  id="cost-name-${idx}"
+                                  list="cost-category-suggestions"
+                                  class="form-input" 
+                                  value="${rowNameEsc}" 
+                                  placeholder="Enter particular / category..."
+                                  oninput="window.Zoosh.Views.Estimate.updateCostRowName(${idx}, this.value)"
+                                  onchange="window.Zoosh.Views.Estimate.updateCostRow(${idx}, 'name', this.value)"
+                                  style="padding: 3px 8px; font-size: 12px; font-weight: 600; flex: 1; border: 1px solid #cbd5e1; border-radius: 4px; background: #ffffff; color: var(--text-main);"
+                                />
+                                ${isWoodRow ? `
+                                  ${isSelectedWood ? `
+                                    <span style="font-size: 10px; font-weight: 700; background: #2563eb; color: #ffffff; padding: 2px 7px; border-radius: 4px; white-space: nowrap;">★ Active Quote</span>
+                                  ` : `
+                                    <button 
+                                      type="button" 
+                                      class="btn btn-secondary btn-sm" 
+                                      onclick="window.Zoosh.Views.Estimate.selectWoodVariant('${row.id}')"
+                                      style="font-size: 10px; padding: 2px 6px; white-space: nowrap; font-weight: 600;"
+                                      title="Set this wood species as active quote"
+                                    >Set Active</button>
+                                  `}
+                                ` : ''}
+                              </div>
+                            </td>
+                            <td style="padding: 4px 6px; text-align: right;">
+                              <input 
+                                type="number" 
+                                step="any"
+                                id="cost-rate-${idx}"
+                                class="form-input" 
+                                value="${row.rate ? row.rate : ''}" 
+                                placeholder="0"
+                                onfocus="this.select()"
+                                oninput="window.Zoosh.Views.Estimate.updateCostRow(${idx}, 'rate', this.value)"
+                                style="padding: 3px 6px; font-size: 12px; font-family: var(--font-mono); text-align: right; width: 80px;"
+                                title="${isWoodRow ? 'Rate per CFT' : 'Rate'}"
+                              />
+                            </td>
+                            <td style="padding: 4px 6px; text-align: right;">
+                              <input 
+                                type="number" 
+                                step="any"
+                                id="cost-qty-${idx}"
+                                class="form-input" 
+                                value="${row.qty !== undefined && row.qty !== 0 ? row.qty : ''}" 
+                                placeholder="0"
+                                onfocus="this.select()"
+                                oninput="window.Zoosh.Views.Estimate.updateCostRow(${idx}, 'qty', this.value)"
+                                style="padding: 3px 6px; font-size: 12px; font-family: var(--font-mono); text-align: right; width: 60px;"
+                                title="${isWoodRow ? 'Wood CFT' : 'Quantity'}"
+                              />
+                            </td>
+                            <td style="padding: 4px 6px; text-align: right;">
+                              <input 
+                                type="number" 
+                                step="any"
+                                id="cost-amount-${idx}"
+                                class="form-input" 
+                                value="${row.amount ? row.amount : ''}" 
+                                placeholder="0"
+                                onfocus="this.select()"
+                                oninput="window.Zoosh.Views.Estimate.updateCostRow(${idx}, 'amount', this.value, true)"
+                                style="padding: 3px 6px; font-size: 12px; font-weight: 700; font-family: var(--font-mono); text-align: right; width: 90px; background: ${row.isDirect ? '#fffbeb' : '#ffffff'};"
+                                title="${row.isDirect ? 'Direct amount entry' : 'Calculated: Rate × Qty'}"
+                              />
+                            </td>
+                            <td style="text-align: center; padding: 4px;">
+                              <button 
+                                type="button"
+                                class="btn btn-secondary btn-sm" 
+                                onclick="window.Zoosh.Views.Estimate.deleteCostRow(${idx})"
+                                style="padding: 2px 5px; font-size: 12px; color: #ef4444; border: 1px solid transparent; background: transparent; cursor: pointer; border-radius: 4px; line-height: 1;"
+                                onmouseover="this.style.background='#fee2e2'; this.style.borderColor='#fca5a5'"
+                                onmouseout="this.style.background='transparent'; this.style.borderColor='transparent'"
+                                title="Delete row"
+                              >&times;</button>
+                            </td>
+                          </tr>
+                        `;
+                      }).join('')}
                     `;
                   }).join('')}
                   <tr style="background: #f8fafc; border-top: 1px dashed #cbd5e1;">
@@ -957,9 +1036,18 @@ window.Zoosh.Views.Estimate = {
                   </tr>
                 </tbody>
                 <tfoot>
+                  <tr style="background: #f1f5f9; border-top: 1.5px solid #cbd5e1; font-weight: 700;">
+                    <td colspan="4" style="text-align: right; padding: 8px 10px; font-size: 11.5px; text-transform: uppercase; color: #475569;">
+                      Other Manufacturing Costs (Non-Wood Subtotal):
+                    </td>
+                    <td id="cost-subtotal-other-cost" style="text-align: right; padding: 8px; font-size: 13px; font-family: var(--font-mono); color: #1e293b; font-weight: 800;">
+                      ₹${(totals.otherCost || 0).toLocaleString('en-IN')}
+                    </td>
+                    <td></td>
+                  </tr>
                   <tr style="background: #f8fafc; border-top: 2px solid #cbd5e1; font-weight: 800;">
-                    <td colspan="4" style="text-align: right; padding: 10px; font-size: 13px; text-transform: uppercase;">
-                      Cost / Item (=SUM):
+                    <td colspan="4" style="text-align: right; padding: 10px; font-size: 12.5px; text-transform: uppercase;">
+                      Active Total Cost / Item (${totals.selectedWoodName || 'Active Wood'} + Other Costs):
                     </td>
                     <td id="cost-total-unit-cost" style="text-align: right; padding: 10px; font-size: 15px; font-family: var(--font-mono); color: #059669;">
                       ₹${(totals.unitCost || 0).toLocaleString('en-IN')}
@@ -968,6 +1056,81 @@ window.Zoosh.Views.Estimate = {
                   </tr>
                 </tfoot>
               </table>
+            </div>
+
+            <!-- MULTI-WOOD COMPARATIVE PRICING PANEL -->
+            <div style="background: #f8fafc; border-top: 2px solid #e2e8f0; padding: 14px 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                <div>
+                  <div style="font-size: 13px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                    <span>🪵</span> Multi-Wood Actual Cost Comparison (Wood Cost + Other Cost)
+                  </div>
+                  <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                    Wood Cut List: <strong>${totals.unitWoodCft || 0} CFT</strong> &bull; Non-Wood Other Costs: <strong>₹${(totals.otherCost || 0).toLocaleString('en-IN')}</strong> &bull; Qty: <strong>${est.productQty || 1} Units</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+                ${['mahogany', 'wood_ash', 'teak'].map(wKey => {
+                  const wData = (totals.multiWoodComparison && totals.multiWoodComparison[wKey]) || {};
+                  const isSelected = est.selectedWood === wKey;
+                  return `
+                    <div style="border: ${isSelected ? '2px solid #2563eb' : '1px solid #cbd5e1'}; background: ${isSelected ? '#eff6ff' : '#ffffff'}; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+                      <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                          <span style="font-size: 13.5px; font-weight: 800; color: #0f172a;">${wData.name || wKey}</span>
+                          ${isSelected ? `<span style="font-size: 9.5px; font-weight: 700; background: #2563eb; color: #ffffff; padding: 2px 6px; border-radius: 4px;">Active Quote</span>` : ''}
+                        </div>
+                        
+                        <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
+                          Rate: <strong>₹${(wData.rate || 0).toLocaleString('en-IN')}/CFT</strong>
+                        </div>
+
+                        <div style="font-size: 11.5px; display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; background: ${isSelected ? '#ffffff' : '#f8fafc'}; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 8px;">
+                          <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #64748b;">Wood Cost:</span>
+                            <strong id="mw-wood-cost-${wKey}" style="font-family: var(--font-mono); color: #854d0e;">₹${(wData.woodCost || 0).toLocaleString('en-IN')}</strong>
+                          </div>
+                          <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #64748b;">Other Mfg Cost:</span>
+                            <strong id="mw-other-cost-${wKey}" style="font-family: var(--font-mono); color: #475569;">+₹${(totals.otherCost || 0).toLocaleString('en-IN')}</strong>
+                          </div>
+                          <div style="height: 1px; background: #e2e8f0; margin: 2px 0;"></div>
+                          <div style="display: flex; justify-content: space-between; font-weight: 800;">
+                            <span style="color: #0f172a;">Actual Unit Cost:</span>
+                            <span id="mw-unit-cost-${wKey}" style="font-family: var(--font-mono); color: #059669;">₹${(wData.unitCost || 0).toLocaleString('en-IN')}</span>
+                          </div>
+                          <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: #64748b;">
+                            <span>Total (${est.productQty || 1} units):</span>
+                            <span id="mw-total-cost-${wKey}" style="font-family: var(--font-mono);">₹${(wData.totalCost || 0).toLocaleString('en-IN')}</span>
+                          </div>
+                        </div>
+
+                        <div style="font-size: 11px; display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px;">
+                          <div style="display: flex; justify-content: space-between; color: #1e40af;">
+                            <span>Quotation (25% Profit):</span>
+                            <strong id="mw-sell25-${wKey}" style="font-family: var(--font-mono);">₹${(wData.sell25 || 0).toLocaleString('en-IN')}</strong>
+                          </div>
+                          <div style="display: flex; justify-content: space-between; color: #15803d;">
+                            <span>Quotation (30% Profit):</span>
+                            <strong id="mw-sell30-${wKey}" style="font-family: var(--font-mono);">₹${(wData.sell30 || 0).toLocaleString('en-IN')}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button 
+                        type="button" 
+                        class="btn ${isSelected ? 'btn-primary' : 'btn-secondary'} btn-sm"
+                        onclick="window.Zoosh.Views.Estimate.selectWoodVariant('${wKey}')"
+                        style="width: 100%; font-size: 11px; font-weight: 700; padding: 4px 6px;"
+                      >
+                        ${isSelected ? '✓ Selected for Quote' : 'Set as Active Quote &rarr;'}
+                      </button>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
             </div>
           </div>
 
@@ -1029,7 +1192,9 @@ window.Zoosh.Views.Estimate = {
                             type="number" 
                             step="any"
                             class="form-input" 
-                            value="${w.length || 0}" 
+                            value="${w.length ? w.length : ''}" 
+                            placeholder="0"
+                            onfocus="this.select()"
                             oninput="window.Zoosh.Views.Estimate.updateWoodRow(${idx}, 'length', this.value)"
                             style="padding: 2px 4px; font-size: 11.5px; font-family: var(--font-mono); text-align: right; width: 54px;"
                           />
@@ -1039,7 +1204,9 @@ window.Zoosh.Views.Estimate = {
                             type="number" 
                             step="any"
                             class="form-input" 
-                            value="${w.width || 0}" 
+                            value="${w.width ? w.width : ''}" 
+                            placeholder="0"
+                            onfocus="this.select()"
                             oninput="window.Zoosh.Views.Estimate.updateWoodRow(${idx}, 'width', this.value)"
                             style="padding: 2px 4px; font-size: 11.5px; font-family: var(--font-mono); text-align: right; width: 54px;"
                           />
@@ -1049,7 +1216,9 @@ window.Zoosh.Views.Estimate = {
                             type="number" 
                             step="any"
                             class="form-input" 
-                            value="${w.thickness || 0}" 
+                            value="${w.thickness ? w.thickness : ''}" 
+                            placeholder="0"
+                            onfocus="this.select()"
                             oninput="window.Zoosh.Views.Estimate.updateWoodRow(${idx}, 'thickness', this.value)"
                             style="padding: 2px 4px; font-size: 11.5px; font-family: var(--font-mono); text-align: right; width: 54px;"
                           />
@@ -1059,12 +1228,14 @@ window.Zoosh.Views.Estimate = {
                             type="number" 
                             min="1"
                             class="form-input" 
-                            value="${w.qty || 1}" 
+                            value="${w.qty !== undefined && w.qty !== 0 ? w.qty : ''}" 
+                            placeholder="0"
+                            onfocus="this.select()"
                             oninput="window.Zoosh.Views.Estimate.updateWoodRow(${idx}, 'qty', this.value)"
                             style="padding: 2px 4px; font-size: 11.5px; font-family: var(--font-mono); text-align: right; width: 44px;"
                           />
                         </td>
-                        <td style="padding: 4px 8px; text-align: right; font-family: var(--font-mono); font-weight: 700; font-size: 12px; color: #854d0e;">
+                        <td id="wood-cft-${idx}" style="padding: 4px 8px; text-align: right; font-family: var(--font-mono); font-weight: 700; font-size: 12px; color: #854d0e;">
                           ${w.cft || 0}
                         </td>
                         <td style="text-align: center; padding: 2px;">
@@ -1083,7 +1254,7 @@ window.Zoosh.Views.Estimate = {
                       <td colspan="5" style="text-align: right; padding: 8px; font-size: 12px; text-transform: uppercase;">
                         Total CFT (1 Unit):
                       </td>
-                      <td style="text-align: right; padding: 8px; font-size: 14px; font-family: var(--font-mono); color: #854d0e;">
+                      <td id="wood-total-cft-unit" style="text-align: right; padding: 8px; font-size: 14px; font-family: var(--font-mono); color: #854d0e;">
                         ${totals.unitWoodCft || 0}
                       </td>
                       <td></td>
@@ -1092,7 +1263,7 @@ window.Zoosh.Views.Estimate = {
                       <td colspan="5" style="text-align: right; padding: 8px; font-size: 12px; text-transform: uppercase;">
                         Total CFT for Full Quantity (${est.productQty || 1} Units):
                       </td>
-                      <td style="text-align: right; padding: 8px; font-size: 14px; font-family: var(--font-mono); color: #b45309;">
+                      <td id="wood-total-cft-qty" style="text-align: right; padding: 8px; font-size: 14px; font-family: var(--font-mono); color: #b45309;">
                         ${totals.totalWoodCft || 0}
                       </td>
                       <td></td>
@@ -1101,25 +1272,33 @@ window.Zoosh.Views.Estimate = {
                 </table>
               </div>
 
-              <!-- Quick Sync Button to Mahogany / Wood Ash -->
-              <div style="padding: 10px 14px; background: #fffbeb; border-top: 1px solid #fde68a; display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 11px; color: #92400e;">Transfer CFT to Cost Table:</span>
-                <div style="display: flex; gap: 6px;">
+              <!-- Quick Sync Button to Mahogany / Wood Ash / Teak -->
+              <div style="padding: 10px 14px; background: #fffbeb; border-top: 1px solid #fde68a; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <span style="font-size: 11px; color: #92400e; font-weight: 700;">Apply ${totals.unitWoodCft || 0} CFT to Wood:</span>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                   <button 
                     type="button" 
                     class="btn btn-secondary btn-sm" 
                     onclick="window.Zoosh.Views.Estimate.applyCftToCostCategory('mahogany')"
-                    style="font-size: 11px; padding: 2px 8px; font-weight: 600;"
+                    style="font-size: 11px; padding: 2px 8px; font-weight: 600; ${est.selectedWood === 'mahogany' ? 'background: #2563eb; color: #ffffff; border-color: #2563eb;' : ''}"
                   >
-                    &rarr; Mahogany (${totals.unitWoodCft || 0} CFT)
+                    ${est.selectedWood === 'mahogany' ? '✓ ' : '&rarr; '}Mahogany (${totals.unitWoodCft || 0} CFT)
                   </button>
                   <button 
                     type="button" 
                     class="btn btn-secondary btn-sm" 
                     onclick="window.Zoosh.Views.Estimate.applyCftToCostCategory('wood_ash')"
-                    style="font-size: 11px; padding: 2px 8px; font-weight: 600;"
+                    style="font-size: 11px; padding: 2px 8px; font-weight: 600; ${est.selectedWood === 'wood_ash' ? 'background: #2563eb; color: #ffffff; border-color: #2563eb;' : ''}"
                   >
-                    &rarr; Wood Ash
+                    ${est.selectedWood === 'wood_ash' ? '✓ ' : '&rarr; '}Ash Wood
+                  </button>
+                  <button 
+                    type="button" 
+                    class="btn btn-secondary btn-sm" 
+                    onclick="window.Zoosh.Views.Estimate.applyCftToCostCategory('teak')"
+                    style="font-size: 11px; padding: 2px 8px; font-weight: 600; ${est.selectedWood === 'teak' ? 'background: #2563eb; color: #ffffff; border-color: #2563eb;' : ''}"
+                  >
+                    ${est.selectedWood === 'teak' ? '✓ ' : '&rarr; '}Teak
                   </button>
                 </div>
               </div>
@@ -1257,12 +1436,6 @@ window.Zoosh.Views.Estimate = {
                   💾 Save Product Estimate
                 </button>
               </div>
-                  onclick="window.Zoosh.Views.Estimate.saveCurrentEstimate()"
-                  style="padding: 8px 20px; font-weight: 800; font-size: 13px; background: #059669; border-color: #059669; display: flex; align-items: center; gap: 6px;"
-                >
-                  💾 Save Product Estimate
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -1297,25 +1470,98 @@ window.Zoosh.Views.Estimate = {
     unitWoodCft = Math.round(unitWoodCft * 1000) / 1000;
     const totalWoodCft = Math.round(unitWoodCft * qty * 1000) / 1000;
 
-    // 2. Recalculate Cost Rows
-    let unitCost = 0;
+    // 2. Category Subtotals & Non-Wood Other Costs
+    let otherCost = 0;
+    const catSubtotals = {
+      wood: 0,
+      carpentry: 0,
+      polish: 0,
+      upholstery: 0,
+      overheads: 0
+    };
+
     (est.costRows || []).forEach(row => {
+      const catKey = this.getCategoryKey(row);
+      const isWood = catKey === 'wood';
+
       if (row.isDirect) {
-        // Direct entry: amount is authoritative
         row.amount = parseFloat(row.amount) || 0;
-      } else {
-        // Rate * Qty
+      } else if (!isWood) {
         const r = parseFloat(row.rate) || 0;
-        const q = parseFloat(row.qty) !== undefined ? parseFloat(row.qty) : 1;
+        const q = row.qty !== undefined ? parseFloat(row.qty) : 1;
         row.amount = Math.round(r * q * 100) / 100;
       }
-      unitCost += row.amount;
+
+      if (!isWood) {
+        otherCost += row.amount;
+        if (catSubtotals[catKey] !== undefined) {
+          catSubtotals[catKey] += row.amount;
+        }
+      }
     });
 
-    unitCost = Math.round(unitCost);
+    otherCost = Math.round(otherCost);
+
+    // 3. Multi-Wood Comparative Cost Calculations
+    const woodVariants = [
+      { id: 'mahogany', name: 'Mahogany', defaultRate: 2500 },
+      { id: 'wood_ash', name: 'Ash Wood', defaultRate: 3200 },
+      { id: 'teak', name: 'Teak', defaultRate: 4500 }
+    ];
+
+    const selectedWood = est.selectedWood || 'mahogany';
+    const multiWoodComparison = {};
+
+    woodVariants.forEach(wv => {
+      const row = (est.costRows || []).find(r => r.id === wv.id || (r.name && r.name.toLowerCase().includes(wv.name.toLowerCase())));
+      const rate = row ? (parseFloat(row.rate) || wv.defaultRate) : wv.defaultRate;
+      const woodCost = Math.round(unitWoodCft * rate);
+      const unitMfgCost = woodCost + otherCost;
+      const totalMfgCost = unitMfgCost * qty;
+      const profit25 = Math.round(totalMfgCost * 0.25);
+      const profit30 = Math.round(totalMfgCost * 0.30);
+      const sell25 = totalMfgCost + profit25;
+      const sell30 = totalMfgCost + profit30;
+
+      multiWoodComparison[wv.id] = {
+        id: wv.id,
+        name: wv.name,
+        rate: rate,
+        cft: unitWoodCft,
+        unitCft: unitWoodCft,
+        woodCost: woodCost,
+        otherCost: otherCost,
+        actualCost: unitMfgCost,
+        unitCost: unitMfgCost,
+        totalCost: totalMfgCost,
+        profit25: profit25,
+        profit30: profit30,
+        sell25: sell25,
+        sell30: sell30,
+        price25: Math.round(sell25 / qty),
+        price30: Math.round(sell30 / qty),
+        unitSell25: Math.round(sell25 / qty),
+        unitSell30: Math.round(sell30 / qty)
+      };
+
+      if (row) {
+        row.rate = rate;
+        if (row.id === selectedWood) {
+          row.qty = unitWoodCft;
+          row.amount = woodCost;
+          catSubtotals.wood = woodCost;
+        } else {
+          row.qty = 0;
+          row.amount = 0;
+        }
+      }
+    });
+
+    const activeWoodData = multiWoodComparison[selectedWood] || multiWoodComparison['mahogany'];
+    let unitCost = activeWoodData ? activeWoodData.unitCost : otherCost;
     const totalCost = unitCost * qty;
 
-    // 3. Profit Tiers & Total Selling Price
+    // 4. Profit Tiers & Total Selling Price
     const profit25 = Math.round(totalCost * 0.25);
     const profit30 = Math.round(totalCost * 0.30);
     const customProfitPercent = parseFloat(est.customProfitPercent) !== undefined ? parseFloat(est.customProfitPercent) : 25;
@@ -1331,9 +1577,16 @@ window.Zoosh.Views.Estimate = {
     const totalSellingPrice = totalCost + activeProfitAmount;
     const unitSellingPrice = Math.round(totalSellingPrice / qty);
 
+    const woodNameMap = { mahogany: 'Mahogany', wood_ash: 'Ash Wood', teak: 'Teak' };
+
     est.totals = {
       unitWoodCft: unitWoodCft,
       totalWoodCft: totalWoodCft,
+      otherCost: otherCost,
+      catSubtotals: catSubtotals,
+      selectedWood: selectedWood,
+      selectedWoodName: woodNameMap[selectedWood] || selectedWood,
+      multiWoodComparison: multiWoodComparison,
       unitCost: unitCost,
       totalCost: totalCost,
       profit25: profit25,
@@ -1397,19 +1650,26 @@ window.Zoosh.Views.Estimate = {
     const row = this.tempEstimate.costRows[idx];
 
     if (field === 'amount' && isDirectAmount) {
-      row.amount = parseFloat(val) || 0;
+      row.amount = val === '' ? 0 : (parseFloat(val) || 0);
       row.isDirect = true;
     } else if (field === 'rate' || field === 'qty') {
-      row[field] = parseFloat(val) || 0;
+      row[field] = val === '' ? 0 : (parseFloat(val) || 0);
       row.isDirect = false;
-      row.amount = Math.round((parseFloat(row.rate) || 0) * (parseFloat(row.qty) || 0));
+      const r = parseFloat(row.rate) || 0;
+      const q = row.qty !== undefined ? parseFloat(row.qty) : 1;
+      row.amount = Math.round(r * q * 100) / 100;
       const amtInput = document.getElementById(`cost-amount-${idx}`);
       if (amtInput && !amtInput.matches(':focus')) {
-        amtInput.value = row.amount;
+        amtInput.value = row.amount ? row.amount : '';
         amtInput.style.background = '#ffffff';
       }
     } else if (field === 'name') {
       row.name = val;
+      return;
+    } else if (field === 'category') {
+      row.category = val;
+      this.recalculateTempEstimateTotals();
+      this.render(document.getElementById('view-container'));
       return;
     } else {
       row[field] = val;
@@ -1419,13 +1679,14 @@ window.Zoosh.Views.Estimate = {
     this.refreshCalculatedDOMElements();
   },
 
-  addCostRow(suggestedName = '', rate = 0, qty = 1, amount = 0, isDirect = false) {
+  addCostRow(suggestedName = '', rate = 0, qty = 1, amount = 0, isDirect = false, category = 'Carpentry & Structural') {
     if (!this.tempEstimate) return;
     this.tempEstimate.costRows = this.tempEstimate.costRows || [];
     const newIdx = this.tempEstimate.costRows.length;
     this.tempEstimate.costRows.push({
       id: 'custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
       name: suggestedName || '',
+      category: category || 'Carpentry & Structural',
       rate: rate || 0,
       qty: qty !== undefined ? qty : 1,
       amount: amount || ((rate || 0) * (qty !== undefined ? qty : 1)),
@@ -1466,12 +1727,13 @@ window.Zoosh.Views.Estimate = {
 
   resetStandardCategories() {
     if (!this.tempEstimate) return;
-    if (!confirm('Reset cost categories to standard 16 Excel rows? Any custom changes or rows will be reset.')) return;
+    if (!confirm('Reset cost categories to standard categorized Excel rows? Any custom changes or rows will be reset.')) return;
 
     if (window.Zoosh.State && window.Zoosh.State.STANDARD_COST_CATEGORIES) {
       this.tempEstimate.costRows = window.Zoosh.State.STANDARD_COST_CATEGORIES.map(cat => ({
         id: cat.id,
         name: cat.name,
+        category: cat.category,
         rate: cat.defaultRate,
         qty: cat.defaultQty,
         amount: cat.defaultAmount,
@@ -1479,29 +1741,30 @@ window.Zoosh.Views.Estimate = {
       }));
     } else {
       this.tempEstimate.costRows = [
-        { id: 'mahogany', name: 'Mahogany', rate: 2500, qty: 0, amount: 0, isDirect: false },
-        { id: 'wood_ash', name: 'Wood Ash', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'carpenter', name: 'Carpenter', rate: 3000, qty: 0, amount: 0, isDirect: false },
-        { id: 'polish_material', name: 'Polish Material', rate: 1500, qty: 0, amount: 0, isDirect: false },
-        { id: 'polish_labour', name: 'Polish Labour', rate: 2400, qty: 0, amount: 0, isDirect: false },
-        { id: 'foam', name: 'Foam', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'fabric', name: 'Fabric', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'upholstery_labour', name: 'Upholstery Labour', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'packing', name: 'Packing', rate: 250, qty: 1, amount: 250, isDirect: true },
-        { id: 'factory_expense', name: 'Factory Expense', rate: 500, qty: 1, amount: 500, isDirect: true },
-        { id: 'metal_work', name: 'Metal Work', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'rattan', name: 'Rattan', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'rope', name: 'Rope', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'consumables', name: 'Consumables', rate: 30, qty: 1, amount: 30, isDirect: true },
-        { id: 'ar_marble', name: 'Ar. Marble', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'plywood', name: 'Plywood', rate: 0, qty: 0, amount: 0, isDirect: false }
+        { id: 'mahogany', name: 'Mahogany', category: 'Wood / Timber', rate: 2500, qty: 0, amount: 0, isDirect: false },
+        { id: 'wood_ash', name: 'Wood Ash', category: 'Wood / Timber', rate: 3200, qty: 0, amount: 0, isDirect: false },
+        { id: 'teak', name: 'Teak', category: 'Wood / Timber', rate: 4500, qty: 0, amount: 0, isDirect: false },
+        { id: 'carpenter', name: 'Carpenter', category: 'Carpentry & Structural', rate: 3000, qty: 0, amount: 0, isDirect: false },
+        { id: 'plywood', name: 'Plywood', category: 'Carpentry & Structural', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'metal_work', name: 'Metal Work', category: 'Carpentry & Structural', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'polish_material', name: 'Polish Material', category: 'Finishing & Polish', rate: 1500, qty: 0, amount: 0, isDirect: false },
+        { id: 'polish_labour', name: 'Polish Labour', category: 'Finishing & Polish', rate: 2400, qty: 0, amount: 0, isDirect: false },
+        { id: 'foam', name: 'Foam', category: 'Upholstery & Soft Furnishing', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'fabric', name: 'Fabric', category: 'Upholstery & Soft Furnishing', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'upholstery_labour', name: 'Upholstery Labour', category: 'Upholstery & Soft Furnishing', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'rattan', name: 'Rattan', category: 'Upholstery & Soft Furnishing', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'rope', name: 'Rope', category: 'Upholstery & Soft Furnishing', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'packing', name: 'Packing', category: 'Factory & Overheads', rate: 250, qty: 1, amount: 250, isDirect: true },
+        { id: 'factory_expense', name: 'Factory Expense', category: 'Factory & Overheads', rate: 500, qty: 1, amount: 500, isDirect: true },
+        { id: 'consumables', name: 'Consumables', category: 'Factory & Overheads', rate: 30, qty: 1, amount: 30, isDirect: true },
+        { id: 'ar_marble', name: 'Ar. Marble', category: 'Factory & Overheads', rate: 0, qty: 0, amount: 0, isDirect: false }
       ];
     }
 
     this.recalculateTempEstimateTotals();
     this.render(document.getElementById('view-container'));
     if (window.Zoosh.Toast) {
-      window.Zoosh.Toast.show('Reset to standard 16 Excel categories', 'success');
+      window.Zoosh.Toast.show('Reset to standard categorized rows', 'success');
     }
   },
 
@@ -1517,6 +1780,29 @@ window.Zoosh.Views.Estimate = {
     };
 
     setTxt('cost-total-unit-cost', `₹${(totals.unitCost || 0).toLocaleString('en-IN')}`);
+    setTxt('cost-subtotal-other-cost', `₹${(totals.otherCost || 0).toLocaleString('en-IN')}`);
+
+    if (totals.catSubtotals) {
+      setTxt('subtotal-wood', `₹${(totals.catSubtotals.wood || 0).toLocaleString('en-IN')}`);
+      setTxt('subtotal-carpentry', `₹${(totals.catSubtotals.carpentry || 0).toLocaleString('en-IN')}`);
+      setTxt('subtotal-polish', `₹${(totals.catSubtotals.polish || 0).toLocaleString('en-IN')}`);
+      setTxt('subtotal-upholstery', `₹${(totals.catSubtotals.upholstery || 0).toLocaleString('en-IN')}`);
+      setTxt('subtotal-overheads', `₹${(totals.catSubtotals.overheads || 0).toLocaleString('en-IN')}`);
+    }
+
+    if (totals.multiWoodComparison) {
+      ['mahogany', 'wood_ash', 'teak'].forEach(wKey => {
+        const w = totals.multiWoodComparison[wKey];
+        if (w) {
+          setTxt(`mw-wood-cost-${wKey}`, `₹${(w.woodCost || 0).toLocaleString('en-IN')}`);
+          setTxt(`mw-other-cost-${wKey}`, `+₹${(totals.otherCost || 0).toLocaleString('en-IN')}`);
+          setTxt(`mw-unit-cost-${wKey}`, `₹${(w.unitCost || 0).toLocaleString('en-IN')}`);
+          setTxt(`mw-total-cost-${wKey}`, `₹${(w.totalCost || 0).toLocaleString('en-IN')}`);
+          setTxt(`mw-sell25-${wKey}`, `₹${(w.sell25 || 0).toLocaleString('en-IN')}`);
+          setTxt(`mw-sell30-${wKey}`, `₹${(w.sell30 || 0).toLocaleString('en-IN')}`);
+        }
+      });
+    }
 
     setTxt('hl-metric-woodCft', String(highlightMetrics.woodCft));
     setTxt('hl-metric-cLab', `₹${(highlightMetrics.cLab || 0).toLocaleString('en-IN')}`);
@@ -1543,16 +1829,32 @@ window.Zoosh.Views.Estimate = {
   },
 
   updateWoodRow(idx, field, val) {
-    if (!this.tempEstimate || !this.tempEstimate.woodRows[idx]) return;
+    if (!this.tempEstimate || !this.tempEstimate.woodRows || !this.tempEstimate.woodRows[idx]) return;
     const w = this.tempEstimate.woodRows[idx];
     if (field === 'part') {
       w.part = val;
     } else {
-      w[field] = parseFloat(val) || 0;
+      w[field] = val === '' ? 0 : (parseFloat(val) || 0);
     }
 
+    // Formula: (Length(ft) * Width(in) * Thickness(in) * Quantity) / 144
+    const l = parseFloat(w.length) || 0;
+    const width = parseFloat(w.width) || 0;
+    const th = parseFloat(w.thickness) || 0;
+    const wQty = parseFloat(w.qty) || 1;
+    const cft = (l * width * th * wQty) / 144;
+    w.cft = Math.round(cft * 10000) / 10000;
+
+    const cftCell = document.getElementById(`wood-cft-${idx}`);
+    if (cftCell) cftCell.textContent = w.cft || 0;
+
     this.recalculateTempEstimateTotals();
-    this.render(document.getElementById('view-container'));
+    const totalUnit = document.getElementById('wood-total-cft-unit');
+    if (totalUnit) totalUnit.textContent = this.tempEstimate.totals.unitWoodCft || 0;
+    const totalQty = document.getElementById('wood-total-cft-qty');
+    if (totalQty) totalQty.textContent = this.tempEstimate.totals.totalWoodCft || 0;
+
+    this.refreshCalculatedDOMElements();
   },
 
   addWoodRow() {
@@ -1591,16 +1893,33 @@ window.Zoosh.Views.Estimate = {
       return;
     }
 
-    const cft = this.tempEstimate.totals.unitWoodCft || 0;
+    const cft = this.tempEstimate.totals ? (this.tempEstimate.totals.unitWoodCft || 0) : 0;
+    this.tempEstimate.selectedWood = row.id;
+
+    // Set CFT to the selected wood
     row.qty = cft;
     row.isDirect = false;
     row.amount = Math.round((parseFloat(row.rate) || 0) * cft);
+
+    // Reset other wood rows
+    (this.tempEstimate.costRows || []).forEach(r => {
+      const catKey = this.getCategoryKey(r);
+      if (catKey === 'wood' && r.id !== row.id) {
+        r.qty = 0;
+        r.amount = 0;
+      }
+    });
+
     this.recalculateTempEstimateTotals();
     this.render(document.getElementById('view-container'));
 
     if (window.Zoosh.Toast) {
-      window.Zoosh.Toast.show(`Transferred ${cft} CFT into ${row.name} quantity!`, 'success');
+      window.Zoosh.Toast.show(`Applied ${cft} CFT to ${row.name}`, 'success');
     }
+  },
+
+  selectWoodVariant(woodId) {
+    this.applyCftToCostCategory(woodId);
   },
 
   selectProfitTier(tier) {
@@ -1657,24 +1976,26 @@ window.Zoosh.Views.Estimate = {
     this.tempEstimate.photo = 'assets/sample_chair.jpeg';
     this.tempEstimate.selectedProfitTier = '25';
     this.tempEstimate.customProfitPercent = 25;
+    this.tempEstimate.selectedWood = 'mahogany';
 
     this.tempEstimate.costRows = [
-      { id: 'mahogany', name: 'Mahogany', rate: 2500, qty: 1.408, amount: 3520, isDirect: false },
-      { id: 'wood_ash', name: 'Wood Ash', rate: 0, qty: 0, amount: 0, isDirect: false },
-      { id: 'carpenter', name: 'Carpenter', rate: 3000, qty: 1, amount: 3000, isDirect: false },
-      { id: 'polish_material', name: 'Polish Material', rate: 1500, qty: 1, amount: 1500, isDirect: false },
-      { id: 'polish_labour', name: 'Polish Labour', rate: 2400, qty: 1, amount: 2400, isDirect: false },
-      { id: 'foam', name: 'Foam', rate: 0, qty: 0, amount: 0, isDirect: false },
-      { id: 'fabric', name: 'Fabric', rate: 0, qty: 0, amount: 0, isDirect: false },
-      { id: 'upholstery_labour', name: 'Upholstery Labour', rate: 0, qty: 0, amount: 0, isDirect: false },
-      { id: 'packing', name: 'Packing', rate: 250, qty: 1, amount: 250, isDirect: true },
-      { id: 'factory_expense', name: 'Factory Expense', rate: 500, qty: 1, amount: 500, isDirect: true },
-      { id: 'metal_work', name: 'Metal Work', rate: 0, qty: 0, amount: 0, isDirect: false },
-      { id: 'rattan', name: 'Rattan', rate: 470, qty: 2, amount: 940, isDirect: false },
-      { id: 'rope', name: 'Rope', rate: 0, qty: 0, amount: 0, isDirect: false },
-      { id: 'consumables', name: 'Consumables', rate: 30, qty: 1, amount: 30, isDirect: true },
-      { id: 'ar_marble', name: 'Ar. Marble', rate: 0, qty: 0, amount: 0, isDirect: false },
-      { id: 'plywood', name: 'Plywood', rate: 0, qty: 0, amount: 0, isDirect: false }
+      { id: 'mahogany', name: 'Mahogany', category: 'Wood / Timber', rate: 2500, qty: 1.408, amount: 3520, isDirect: false },
+      { id: 'wood_ash', name: 'Wood Ash', category: 'Wood / Timber', rate: 3200, qty: 0, amount: 0, isDirect: false },
+      { id: 'teak', name: 'Teak', category: 'Wood / Timber', rate: 4500, qty: 0, amount: 0, isDirect: false },
+      { id: 'carpenter', name: 'Carpenter', category: 'Carpentry & Structural', rate: 3000, qty: 1, amount: 3000, isDirect: false },
+      { id: 'plywood', name: 'Plywood', category: 'Carpentry & Structural', rate: 0, qty: 0, amount: 0, isDirect: false },
+      { id: 'metal_work', name: 'Metal Work', category: 'Carpentry & Structural', rate: 0, qty: 0, amount: 0, isDirect: false },
+      { id: 'polish_material', name: 'Polish Material', category: 'Finishing & Polish', rate: 1500, qty: 1, amount: 1500, isDirect: false },
+      { id: 'polish_labour', name: 'Polish Labour', category: 'Finishing & Polish', rate: 2400, qty: 1, amount: 2400, isDirect: false },
+      { id: 'foam', name: 'Foam', category: 'Upholstery & Soft Furnishing', rate: 0, qty: 0, amount: 0, isDirect: false },
+      { id: 'fabric', name: 'Fabric', category: 'Upholstery & Soft Furnishing', rate: 0, qty: 0, amount: 0, isDirect: false },
+      { id: 'upholstery_labour', name: 'Upholstery Labour', category: 'Upholstery & Soft Furnishing', rate: 0, qty: 0, amount: 0, isDirect: false },
+      { id: 'rattan', name: 'Rattan', category: 'Upholstery & Soft Furnishing', rate: 470, qty: 2, amount: 940, isDirect: false },
+      { id: 'rope', name: 'Rope', category: 'Upholstery & Soft Furnishing', rate: 0, qty: 0, amount: 0, isDirect: false },
+      { id: 'packing', name: 'Packing', category: 'Factory & Overheads', rate: 250, qty: 1, amount: 250, isDirect: true },
+      { id: 'factory_expense', name: 'Factory Expense', category: 'Factory & Overheads', rate: 500, qty: 1, amount: 500, isDirect: true },
+      { id: 'consumables', name: 'Consumables', category: 'Factory & Overheads', rate: 30, qty: 1, amount: 30, isDirect: true },
+      { id: 'ar_marble', name: 'Ar. Marble', category: 'Factory & Overheads', rate: 0, qty: 0, amount: 0, isDirect: false }
     ];
 
     this.tempEstimate.woodRows = [
@@ -1699,15 +2020,25 @@ window.Zoosh.Views.Estimate = {
     csv += `Project,"${est.projectName}"\n`;
     csv += `Client,"${est.clientName}"\n`;
     csv += `Date,"${est.estimateDate}"\n`;
-    csv += `Product,"${est.productName}",Qty,${est.productQty}\n\n`;
+    csv += `Product,"${est.productName}",Qty,${est.productQty}\n`;
+    csv += `Selected Wood,"${(est.selectedWood || 'mahogany').toUpperCase()}"\n\n`;
 
     csv += `MANUFACTURING COST CATEGORIES\n`;
-    csv += `#,Particulars,Rate,Qty,Amount\n`;
+    csv += `#,Category,Particulars,Rate,Qty,Amount\n`;
     (est.costRows || []).forEach((r, idx) => {
-      csv += `${idx + 1},"${r.name}",${r.rate || 0},${r.qty || 0},${r.amount || 0}\n`;
+      csv += `${idx + 1},"${r.category || this.getCategoryKey(r)}","${r.name}",${r.rate || 0},${r.qty || 0},${r.amount || 0}\n`;
     });
-    csv += `,"Cost/item (Unit Mfg Cost)",,,${est.totals.unitCost}\n`;
-    csv += `,"Total Mfg Cost for ${est.productQty} units",,,${est.totals.totalCost}\n\n`;
+    csv += `,"Other Manufacturing Costs (Carpentry, Polish, Upholstery, Overheads)",,,,${est.totals.otherCost || 0}\n`;
+    csv += `,"Cost/item (Unit Mfg Cost - ${est.selectedWood || 'Mahogany'})",,,,${est.totals.unitCost}\n`;
+    csv += `,"Total Mfg Cost for ${est.productQty} units",,,,${est.totals.totalCost}\n\n`;
+
+    csv += `MULTI-WOOD COMPARATIVE PRICING (WOOD COST + OTHER COST)\n`;
+    csv += `Wood Species,Rate/CFT,Unit CFT,Wood Cost,Other Cost,Actual Unit Mfg Cost,Quotation @ 25%,Quotation @ 30%\n`;
+    const comparison = (est.totals && est.totals.multiWoodComparison) ? Object.values(est.totals.multiWoodComparison) : [];
+    comparison.forEach(item => {
+      csv += `"${item.name}",${item.rate},${item.unitCft},${item.woodCost},${item.otherCost},${item.actualCost},${item.price25},${item.price30}\n`;
+    });
+    csv += `\n`;
 
     csv += `WOOD CUT LIST (CFT)\n`;
     csv += `#,Part,Length (ft),Width (in),Thickness (in),Qty,CFT\n`;

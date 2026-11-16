@@ -1282,22 +1282,23 @@ window.Zoosh.State = {
   // ==========================================
 
   STANDARD_COST_CATEGORIES: [
-    { id: 'mahogany', name: 'Mahogany', defaultRate: 2500, defaultQty: 0, defaultAmount: 0, isDirect: false },
-    { id: 'wood_ash', name: 'Wood Ash', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
-    { id: 'carpenter', name: 'Carpenter', defaultRate: 3000, defaultQty: 0, defaultAmount: 0, isDirect: false },
-    { id: 'polish_material', name: 'Polish Material', defaultRate: 1500, defaultQty: 0, defaultAmount: 0, isDirect: false },
-    { id: 'polish_labour', name: 'Polish Labour', defaultRate: 2400, defaultQty: 0, defaultAmount: 0, isDirect: false },
-    { id: 'foam', name: 'Foam', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
-    { id: 'fabric', name: 'Fabric', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
-    { id: 'upholstery_labour', name: 'Upholstery Labour', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
-    { id: 'packing', name: 'Packing', defaultRate: 250, defaultQty: 1, defaultAmount: 250, isDirect: true },
-    { id: 'factory_expense', name: 'Factory Expense', defaultRate: 500, defaultQty: 1, defaultAmount: 500, isDirect: true },
-    { id: 'metal_work', name: 'Metal Work', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
-    { id: 'rattan', name: 'Rattan', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
-    { id: 'rope', name: 'Rope', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
-    { id: 'consumables', name: 'Consumables', defaultRate: 30, defaultQty: 1, defaultAmount: 30, isDirect: true },
-    { id: 'ar_marble', name: 'Ar. Marble', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
-    { id: 'plywood', name: 'Plywood', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false }
+    { id: 'mahogany', name: 'Mahogany', category: 'Wood / Timber', defaultRate: 2500, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'wood_ash', name: 'Wood Ash', category: 'Wood / Timber', defaultRate: 3200, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'teak', name: 'Teak', category: 'Wood / Timber', defaultRate: 4500, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'carpenter', name: 'Carpenter', category: 'Carpentry & Structural', defaultRate: 3000, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'plywood', name: 'Plywood', category: 'Carpentry & Structural', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'metal_work', name: 'Metal Work', category: 'Carpentry & Structural', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'polish_material', name: 'Polish Material', category: 'Finishing & Polish', defaultRate: 1500, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'polish_labour', name: 'Polish Labour', category: 'Finishing & Polish', defaultRate: 2400, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'foam', name: 'Foam', category: 'Upholstery & Soft Furnishing', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'fabric', name: 'Fabric', category: 'Upholstery & Soft Furnishing', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'upholstery_labour', name: 'Upholstery Labour', category: 'Upholstery & Soft Furnishing', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'rattan', name: 'Rattan', category: 'Upholstery & Soft Furnishing', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'rope', name: 'Rope', category: 'Upholstery & Soft Furnishing', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false },
+    { id: 'packing', name: 'Packing', category: 'Factory & Overheads', defaultRate: 250, defaultQty: 1, defaultAmount: 250, isDirect: true },
+    { id: 'factory_expense', name: 'Factory Expense', category: 'Factory & Overheads', defaultRate: 500, defaultQty: 1, defaultAmount: 500, isDirect: true },
+    { id: 'consumables', name: 'Consumables', category: 'Factory & Overheads', defaultRate: 30, defaultQty: 1, defaultAmount: 30, isDirect: true },
+    { id: 'ar_marble', name: 'Ar. Marble', category: 'Factory & Overheads', defaultRate: 0, defaultQty: 0, defaultAmount: 0, isDirect: false }
   ],
 
   getDefaultEstimate(furnitureId) {
@@ -1308,6 +1309,7 @@ window.Zoosh.State = {
     const costRows = this.STANDARD_COST_CATEGORIES.map(cat => ({
       id: cat.id,
       name: cat.name,
+      category: cat.category,
       rate: cat.defaultRate,
       qty: cat.defaultQty,
       amount: cat.defaultAmount,
@@ -1324,6 +1326,7 @@ window.Zoosh.State = {
       productNo: furn.productCode || furn.itemCode || '1',
       productName: furn.name || furn.furnitureName || 'Product',
       productQty: qty,
+      selectedWood: 'mahogany',
       estimateDate: window.Zoosh.Config.CURRENT_DATE,
       photo: furn.photo || furn.image || (furn.originalQuotationData && furn.originalQuotationData.photoUrl) || null,
       selectedProfitTier: '25',
@@ -1583,25 +1586,27 @@ window.Zoosh.State = {
       productQty: 2,
       estimateDate: '2026-11-01',
       photo: sampleChairImage,
+      selectedWood: 'mahogany',
       selectedProfitTier: '25',
       customProfitPercent: 25,
       costRows: [
-        { id: 'mahogany', name: 'Mahogany', rate: 2500, qty: 1.408, amount: 3520, isDirect: false },
-        { id: 'wood_ash', name: 'Wood Ash', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'carpenter', name: 'Carpenter', rate: 3000, qty: 1, amount: 3000, isDirect: false },
-        { id: 'polish_material', name: 'Polish Material', rate: 1500, qty: 1, amount: 1500, isDirect: false },
-        { id: 'polish_labour', name: 'Polish Labour', rate: 2400, qty: 1, amount: 2400, isDirect: false },
-        { id: 'foam', name: 'Foam', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'fabric', name: 'Fabric', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'upholstery_labour', name: 'Upholstery Labour', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'packing', name: 'Packing', rate: 250, qty: 1, amount: 250, isDirect: true },
-        { id: 'factory_expense', name: 'Factory Expense', rate: 500, qty: 1, amount: 500, isDirect: true },
-        { id: 'metal_work', name: 'Metal Work', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'rattan', name: 'Rattan', rate: 470, qty: 2, amount: 940, isDirect: false },
-        { id: 'rope', name: 'Rope', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'consumables', name: 'Consumables', rate: 30, qty: 1, amount: 30, isDirect: true },
-        { id: 'ar_marble', name: 'Ar. Marble', rate: 0, qty: 0, amount: 0, isDirect: false },
-        { id: 'plywood', name: 'Plywood', rate: 0, qty: 0, amount: 0, isDirect: false }
+        { id: 'mahogany', name: 'Mahogany', category: 'Wood / Timber', rate: 2500, qty: 1.408, amount: 3520, isDirect: false },
+        { id: 'wood_ash', name: 'Wood Ash', category: 'Wood / Timber', rate: 3200, qty: 0, amount: 0, isDirect: false },
+        { id: 'teak', name: 'Teak', category: 'Wood / Timber', rate: 4500, qty: 0, amount: 0, isDirect: false },
+        { id: 'carpenter', name: 'Carpenter', category: 'Carpentry & Structural', rate: 3000, qty: 1, amount: 3000, isDirect: false },
+        { id: 'plywood', name: 'Plywood', category: 'Carpentry & Structural', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'metal_work', name: 'Metal Work', category: 'Carpentry & Structural', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'polish_material', name: 'Polish Material', category: 'Finishing & Polish', rate: 1500, qty: 1, amount: 1500, isDirect: false },
+        { id: 'polish_labour', name: 'Polish Labour', category: 'Finishing & Polish', rate: 2400, qty: 1, amount: 2400, isDirect: false },
+        { id: 'foam', name: 'Foam', category: 'Upholstery & Soft Furnishing', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'fabric', name: 'Fabric', category: 'Upholstery & Soft Furnishing', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'upholstery_labour', name: 'Upholstery Labour', category: 'Upholstery & Soft Furnishing', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'rattan', name: 'Rattan', category: 'Upholstery & Soft Furnishing', rate: 470, qty: 2, amount: 940, isDirect: false },
+        { id: 'rope', name: 'Rope', category: 'Upholstery & Soft Furnishing', rate: 0, qty: 0, amount: 0, isDirect: false },
+        { id: 'packing', name: 'Packing', category: 'Factory & Overheads', rate: 250, qty: 1, amount: 250, isDirect: true },
+        { id: 'factory_expense', name: 'Factory Expense', category: 'Factory & Overheads', rate: 500, qty: 1, amount: 500, isDirect: true },
+        { id: 'consumables', name: 'Consumables', category: 'Factory & Overheads', rate: 30, qty: 1, amount: 30, isDirect: true },
+        { id: 'ar_marble', name: 'Ar. Marble', category: 'Factory & Overheads', rate: 0, qty: 0, amount: 0, isDirect: false }
       ],
       woodRows: [
         { part: 'Piece 1 (Back Rest Plank)', length: 4, width: 10, thickness: 1.5, qty: 1, cft: 0.4167 },
@@ -1615,6 +1620,7 @@ window.Zoosh.State = {
       totals: {
         unitWoodCft: 1.408,
         totalWoodCft: 2.816,
+        otherCost: 8620,
         unitCost: 12140,
         totalCost: 24280,
         profit25: 6070,
@@ -1622,7 +1628,12 @@ window.Zoosh.State = {
         customProfitPercent: 25,
         customProfitAmount: 6070,
         unitSellingPrice: 15175,
-        totalSellingPrice: 30350
+        totalSellingPrice: 30350,
+        multiWoodComparison: {
+          mahogany: { id: 'mahogany', name: 'Mahogany', rate: 2500, cft: 1.408, unitCft: 1.408, woodCost: 3520, otherCost: 8620, actualCost: 12140, unitCost: 12140, totalCost: 24280, profit25: 6070, profit30: 7284, sell25: 30350, sell30: 31564, price25: 15175, price30: 15782, unitSell25: 15175, unitSell30: 15782 },
+          wood_ash: { id: 'wood_ash', name: 'Ash Wood', rate: 3200, cft: 1.408, unitCft: 1.408, woodCost: 4506, otherCost: 8620, actualCost: 13126, unitCost: 13126, totalCost: 26252, profit25: 6563, profit30: 7876, sell25: 32815, sell30: 34128, price25: 16408, price30: 17064, unitSell25: 16408, unitSell30: 17064 },
+          teak: { id: 'teak', name: 'Teak', rate: 4500, cft: 1.408, unitCft: 1.408, woodCost: 6336, otherCost: 8620, actualCost: 14956, unitCost: 14956, totalCost: 29912, profit25: 7478, profit30: 8974, sell25: 37390, sell30: 38886, price25: 18695, price30: 19443, unitSell25: 18695, unitSell30: 19443 }
+        }
       },
       isSaved: true,
       updatedAt: '2026-11-01T10:00:00.000Z'
