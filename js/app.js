@@ -14,6 +14,33 @@ window.Zoosh.App = {
   currentView: 'overview',
   isBooted: false,
   isSidebarOpen: false,
+  isSidebarCollapsed: false,
+
+  toggleSidebarCollapse() {
+    const sidebar = document.getElementById('app-sidebar');
+    if (!sidebar) return;
+
+    if (window.innerWidth <= 1024) {
+      this.toggleSidebar();
+      return;
+    }
+
+    this.isSidebarCollapsed = !this.isSidebarCollapsed;
+    if (this.isSidebarCollapsed) {
+      sidebar.classList.add('collapsed');
+      localStorage.setItem('zoosh_sidebar_collapsed', 'true');
+    } else {
+      sidebar.classList.remove('collapsed');
+      localStorage.setItem('zoosh_sidebar_collapsed', 'false');
+    }
+
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+      if (this.currentView === 'schedule' && window.Zoosh.Views && window.Zoosh.Views.Schedule) {
+        window.Zoosh.Views.Schedule.refreshGantt();
+      }
+    }, 150);
+  },
 
   toggleSidebar(forceState) {
     const sidebar = document.getElementById('app-sidebar');
@@ -110,7 +137,16 @@ window.Zoosh.App = {
       this.updateTopbarBadges(state);
     });
 
-    // 8. Initial Render based on URL hash or default overview
+    // 8. Restore sidebar collapse state on desktop
+    if (window.innerWidth > 1024 && localStorage.getItem('zoosh_sidebar_collapsed') === 'true') {
+      const sidebar = document.getElementById('app-sidebar');
+      if (sidebar) {
+        sidebar.classList.add('collapsed');
+        this.isSidebarCollapsed = true;
+      }
+    }
+
+    // 9. Initial Render based on URL hash or default overview
     const hashRoute = (window.location.hash || '').replace('#', '').trim();
     const validViews = ['overview', 'projects', 'estimate', 'schedule', 'team', 'processes', 'manpower', 'reports', 'settings'];
     const initialView = validViews.includes(hashRoute) ? hashRoute : (this.currentView || 'overview');
@@ -124,14 +160,12 @@ window.Zoosh.App = {
     const topbarProfile = document.getElementById('user-topbar-profile');
     if (topbarProfile) {
       topbarProfile.innerHTML = `
-        <div class="user-avatar-badge" style="background: #10b981;" title="Unlocked Factory Access">⚡</div>
+        <div class="user-avatar-badge" title="Factory Control Room">FC</div>
         <div style="font-size: 12px; line-height: 1.2;">
-          <strong style="color: var(--text-main); display: block;">Factory Control</strong>
-          <span class="badge badge-primary" style="font-size: 9.5px; padding: 1px 5px; background: #e0f2fe; color: #0369a1;">
-            FULL ACCESS
-          </span>
+          <strong style="color: var(--text-main); display: block; font-weight: 600;">Factory Control</strong>
+          <span style="font-size: 10px; color: var(--text-secondary);">Production Admin</span>
         </div>
-        <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 11px; margin-left: 4px;" onclick="window.Zoosh.App.navigateTo('settings')" title="Factory Data & Database">
+        <button class="btn btn-secondary btn-sm" style="padding: 4px 7px; font-size: 11px; margin-left: 2px;" onclick="window.Zoosh.App.navigateTo('settings')" title="Factory Settings &amp; Data">
           ⚙️
         </button>
       `;
@@ -152,12 +186,12 @@ window.Zoosh.App = {
     if (sidebarUserBadge) {
       sidebarUserBadge.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 28px; height: 28px; border-radius: 50%; background: #10b981; color: #ffffff; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center;">
-            ⚡
+          <div class="user-avatar-badge" style="width: 30px; height: 30px; font-size: 11px;">
+            FC
           </div>
-          <div>
-            <div style="font-size: 12px; font-weight: 700; color: #ffffff;">Factory Control</div>
-            <div style="font-size: 10px; color: #94a3b8;">Unlocked &bull; Open Access</div>
+          <div style="overflow: hidden;">
+            <div style="font-size: 12px; font-weight: 700; color: var(--text-main); white-space: nowrap;">Factory Control</div>
+            <div style="font-size: 10.5px; color: var(--color-success-text); font-weight: 600;">● Active Shift</div>
           </div>
         </div>
       `;
@@ -201,14 +235,30 @@ window.Zoosh.App = {
       }
     });
 
-    // Listen to hash changes for deep linking
-    window.addEventListener('hashchange', () => {
-      const hashRoute = (window.location.hash || '').replace('#', '').trim();
+    // Listen to hash changes for deep linking with query parameters
+    const handleHashRoute = () => {
+      const rawHash = (window.location.hash || '').replace('#', '').trim();
+      if (!rawHash) return;
+      const [hashRoute, queryStr] = rawHash.split('?');
       const validViews = ['overview', 'projects', 'estimate', 'schedule', 'team', 'processes', 'manpower', 'reports', 'settings'];
-      if (validViews.includes(hashRoute) && hashRoute !== this.currentView) {
-        this.navigateTo(hashRoute);
+      if (validViews.includes(hashRoute)) {
+        if (queryStr) {
+          const params = new URLSearchParams(queryStr);
+          const projId = params.get('project');
+          if (hashRoute === 'estimate' && projId && window.Zoosh.Views.Estimate) {
+            window.Zoosh.Views.Estimate.openProject(projId);
+            return;
+          }
+        }
+        if (hashRoute !== this.currentView) {
+          this.navigateTo(hashRoute);
+        }
       }
-    });
+    };
+    window.addEventListener('hashchange', handleHashRoute);
+    if (window.location.hash) {
+      handleHashRoute();
+    }
 
     // Close tooltip on window scroll or resize
     window.addEventListener('scroll', () => {
@@ -279,15 +329,33 @@ window.Zoosh.App = {
       }
     });
 
+    // Update dynamic Topbar Breadcrumb & Page Title
+    const viewMeta = {
+      overview: { breadcrumb: 'Factory Control Room', title: 'Production Overview' },
+      projects: { breadcrumb: 'Orders & Commitments', title: 'Clients & Projects' },
+      estimate: { breadcrumb: 'Costing & Quotations', title: 'Production Estimates' },
+      schedule: { breadcrumb: 'Shop Floor Timeline', title: 'Production Schedule' },
+      team: { breadcrumb: 'Human Resources', title: 'Team & Craftspeople' },
+      processes: { breadcrumb: 'Standard Flow Presets', title: 'Production Processes' },
+      manpower: { breadcrumb: 'Attendance & Capacity', title: 'Manpower & Leaves' },
+      reports: { breadcrumb: 'Analytics & Export', title: 'Factory Reports' },
+      settings: { breadcrumb: 'System Administration', title: 'Settings & Users' }
+    };
+    const meta = viewMeta[viewName] || { breadcrumb: 'Factory Control', title: 'Zoosh Production' };
+    const breadcrumbEl = document.getElementById('topbar-breadcrumb');
+    const pageTitleEl = document.getElementById('topbar-page-title');
+    if (breadcrumbEl) breadcrumbEl.textContent = meta.breadcrumb;
+    if (pageTitleEl) pageTitleEl.textContent = meta.title;
+
     // Update Mobile Header Title
     const viewTitles = {
       overview: 'Overview',
       projects: 'Clients & Projects',
-      estimate: 'Excel Estimates',
+      estimate: 'Production Estimates',
       schedule: 'Production Schedule',
       team: 'Team & Craftspeople',
-      processes: 'Process Flow Types',
-      manpower: 'Manpower & Capacity',
+      processes: 'Process Flows',
+      manpower: 'Manpower & Leaves',
       reports: 'Factory Reports',
       settings: 'Settings & Admin'
     };

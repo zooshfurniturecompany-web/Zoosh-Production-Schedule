@@ -23,6 +23,7 @@ window.Zoosh.Views.Projects = {
   activeFurnitureId: null,
   searchQuery: '',
   statusFilter: 'ALL',
+  viewMode: 'table', // 'table' | 'grid'
 
   render(container) {
     if (this.activeFurnitureId) {
@@ -49,14 +50,14 @@ window.Zoosh.Views.Projects = {
         </div>
         <div style="display: flex; gap: 10px;">
           ${canCreate ? `
-            <button class="btn btn-secondary" onclick="window.Zoosh.QuotationImportModal.open()" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; border: 1px solid #10b981; color: #065f46; background: #ecfdf5;">
+            <button class="btn btn-soft-blue" onclick="window.Zoosh.QuotationImportModal.open()" style="font-weight: 600;">
               <span>📄</span> Import Quotation
             </button>
             <button class="btn btn-primary" onclick="window.Zoosh.Views.Projects.openAddModal()">
               <span>+</span> New Project
             </button>
           ` : `
-            <span class="badge badge-upholstery" style="align-self: center;">
+            <span class="badge badge-primary" style="align-self: center;">
               👁️ Visitor Read-Only Mode
             </span>
           `}
@@ -64,7 +65,7 @@ window.Zoosh.Views.Projects = {
       </div>
 
       <!-- Segmented Tab Navigation -->
-      <div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-light); padding-bottom: 10px;">
+      <div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
         <button 
           class="btn ${this.activeTab === 'projects' ? 'btn-primary' : 'btn-secondary'} btn-sm"
           onclick="window.Zoosh.Views.Projects.switchTab('projects')"
@@ -115,11 +116,13 @@ window.Zoosh.Views.Projects = {
     }
 
     return `
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 12px; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; flex-wrap: wrap;">
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
           <input type="text" class="search-input-box" placeholder="🔍 Search projects, clients, or codes..." 
             value="${this.searchQuery}" 
-            oninput="window.Zoosh.Views.Projects.searchQuery = this.value; window.Zoosh.Views.Projects.render(document.getElementById('view-container'))" />
+            oninput="window.Zoosh.Views.Projects.searchQuery = this.value; window.Zoosh.Views.Projects.render(document.getElementById('view-container'))" 
+            style="width: 260px;"
+          />
 
           <select class="filter-select" onchange="window.Zoosh.Views.Projects.statusFilter = this.value; window.Zoosh.Views.Projects.render(document.getElementById('view-container'))">
             <option value="ALL" ${this.statusFilter === 'ALL' ? 'selected' : ''}>All Statuses</option>
@@ -127,15 +130,25 @@ window.Zoosh.Views.Projects = {
             <option value="AT_RISK" ${this.statusFilter === 'AT_RISK' ? 'selected' : ''}>At Risk</option>
             <option value="DELAYED" ${this.statusFilter === 'DELAYED' ? 'selected' : ''}>Delayed</option>
           </select>
+
+          <div class="btn-group desktop-only">
+            <button class="btn-group-btn ${this.viewMode === 'table' ? 'active' : ''}" onclick="window.Zoosh.Views.Projects.viewMode = 'table'; window.Zoosh.Views.Projects.render(document.getElementById('view-container'))" title="Table View">
+              ☰ Table
+            </button>
+            <button class="btn-group-btn ${this.viewMode === 'grid' ? 'active' : ''}" onclick="window.Zoosh.Views.Projects.viewMode = 'grid'; window.Zoosh.Views.Projects.render(document.getElementById('view-container'))" title="Grid View">
+              ⊞ Cards
+            </button>
+          </div>
         </div>
-        <div style="font-size: 13px; color: var(--text-muted);">
+
+        <div style="font-size: 12.5px; color: var(--text-muted);">
           Showing <strong>${projects.length}</strong> project${projects.length !== 1 ? 's' : ''}
         </div>
       </div>
 
       ${projects.length === 0 ? `
-        <div style="background: #ffffff; padding: 50px; text-align: center; border-radius: var(--radius-md); border: 1px solid var(--border-light); color: var(--text-muted);">
-          No projects found.
+        <div style="background: #ffffff; padding: 50px; text-align: center; border-radius: var(--radius-md); border: 1px solid var(--border-color); color: var(--text-muted);">
+          No projects found matching your search.
           ${window.Zoosh.Auth && window.Zoosh.Auth.canCreate() ? `
             <div style="margin-top: 14px;">
               <button class="btn btn-primary btn-sm" onclick="window.Zoosh.Views.Projects.openAddModal()">
@@ -150,11 +163,117 @@ window.Zoosh.Views.Projects = {
           ${projects.map(p => this.renderMobileProjectCard(p, clientsMap)).join('')}
         </div>
 
-        <!-- Desktop Project Grid (>768px) -->
-        <div class="desktop-only" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px;">
-          ${projects.map(p => this.renderProjectCard(p, clientsMap)).join('')}
+        <!-- Desktop Project View (>768px) -->
+        <div class="desktop-only">
+          ${this.viewMode === 'table' ? this.renderProjectsTable(projects, clientsMap) : `
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;">
+              ${projects.map(p => this.renderProjectCard(p, clientsMap)).join('')}
+            </div>
+          `}
         </div>
       `}
+    `;
+  },
+
+  renderProjectsTable(projects, clientsMap) {
+    const calendar = window.Zoosh.Calendar;
+
+    return `
+      <div class="data-table-wrapper" style="box-shadow: var(--shadow-sm);">
+        <table class="table" style="margin: 0; width: 100%;">
+          <thead>
+            <tr>
+              <th style="min-width: 220px;">Project / Client</th>
+              <th style="min-width: 140px;">Quotation Ref</th>
+              <th style="min-width: 140px;">Delivery Deadline</th>
+              <th style="min-width: 150px;">Projected Finish</th>
+              <th style="min-width: 170px;">Items &amp; Progress</th>
+              <th style="min-width: 160px; text-align: center;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${projects.map(p => {
+              const client = clientsMap.get(p.clientId);
+              const clientCode = client ? (client.code || client.clientCode || client.srl) : (p.clientCode || p.clientSrl || '—');
+              const clientName = client ? client.name : (p.clientName || 'Client');
+
+              let badgeClass = 'badge-on-schedule';
+              let statusLabel = 'ON TRACK';
+              if (p.isDelivered || p.status === 'DELIVERED') {
+                badgeClass = 'badge-primary';
+                statusLabel = 'DELIVERED';
+              } else if (p.deadlineStatus === 'AT_RISK') {
+                badgeClass = 'badge-at-risk';
+                statusLabel = `AT RISK (${p.daysBuffer || 0}d)`;
+              } else if (p.deadlineStatus === 'DELAYED') {
+                badgeClass = 'badge-delayed';
+                statusLabel = `DELAYED (+${p.daysOverdue || 0}d)`;
+              } else if (p.completionPercent === 100) {
+                badgeClass = 'badge-on-schedule';
+                statusLabel = 'COMPLETED';
+              }
+
+              const percent = p.completionPercent || 0;
+
+              return `
+                <tr style="cursor: pointer; transition: background-color 0.15s;" onclick="window.Zoosh.Views.Projects.openDetail('${p.id}')">
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span class="badge badge-primary" style="font-family: var(--font-mono); font-size: 10px; padding: 1px 5px;">${clientCode}</span>
+                      <strong style="font-size: 13px; color: var(--text-main); font-weight: 600;">${p.name}</strong>
+                    </div>
+                    <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
+                      ${clientName} &bull; ${p.location}
+                    </div>
+                  </td>
+                  <td>
+                    ${p.quotationRef ? `
+                      <span class="badge badge-success" style="font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;" title="Imported from Quotation">
+                        📄 ${p.quotationRef.quotationNo}
+                      </span>
+                    ` : `<span style="color: var(--text-muted); font-size: 12px;">Manual Order</span>`}
+                  </td>
+                  <td>
+                    <div style="font-family: var(--font-mono); font-size: 12.5px; color: var(--text-main); font-weight: 500;">
+                      ${calendar.formatDisplayDate(p.deliveryDeadline, false, true)}
+                    </div>
+                    <div style="font-size: 10.5px; color: ${p.deadlineStatus === 'DELAYED' ? 'var(--color-error)' : 'var(--text-muted)'}; margin-top: 2px;">
+                      ${p.deadlineStatus === 'DELAYED' ? `Overdue by ${p.daysOverdue || 0}d` : 'Target date'}
+                    </div>
+                  </td>
+                  <td>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span class="badge ${badgeClass}" style="font-size: 10px;">${statusLabel}</span>
+                    </div>
+                    <div style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary); margin-top: 3px;">
+                      ${calendar.formatDisplayDate(p.projectedFinishDate, false, true)}
+                    </div>
+                  </td>
+                  <td>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; margin-bottom: 4px;">
+                      <span style="color: var(--text-secondary);">${p.completedSrlCount || 0}/${p.totalSrlCount || 0} Items</span>
+                      <span style="font-family: var(--font-mono); font-weight: 600; color: ${percent === 100 ? 'var(--color-success)' : 'var(--primary-blue)'};">${percent}%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                      <div class="progress-bar-fill ${percent === 100 ? 'success' : ''}" style="width: ${percent}%;"></div>
+                    </div>
+                  </td>
+                  <td style="text-align: center;" onclick="event.stopPropagation()">
+                    <div style="display: inline-flex; gap: 6px;">
+                      <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Projects.openDetail('${p.id}')" title="View Project Details">
+                        Details &rarr;
+                      </button>
+                      <button class="btn btn-soft-blue btn-sm" onclick="window.Zoosh.Views.Estimate.openProject('${p.id}')" title="Open Costing &amp; Estimates">
+                        📊 Costing
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
     `;
   },
 

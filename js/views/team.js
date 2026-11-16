@@ -86,7 +86,7 @@ window.Zoosh.Views.Team = {
                     <tr>
                       <td>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                          <div style="width: 32px; height: 32px; border-radius: 50%; background: #0f172a; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 13px;">
+                          <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-blue-light); color: var(--primary-blue); border: 1px solid #bfdbfe; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 13px;">
                             ${emp.name.charAt(0)}
                           </div>
                           <div>
@@ -149,7 +149,7 @@ window.Zoosh.Views.Team = {
                 <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 14px; box-shadow: var(--shadow-sm); border-left: 4px solid var(--dept-${emp.department.toLowerCase()});">
                   <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                      <div style="width: 34px; height: 34px; border-radius: 50%; background: #0f172a; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 13px;">
+                      <div style="width: 34px; height: 34px; border-radius: 50%; background: var(--bg-blue-light); color: var(--primary-blue); border: 1px solid #bfdbfe; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 13px;">
                         ${emp.name.charAt(0)}
                       </div>
                       <div>

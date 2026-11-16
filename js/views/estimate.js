@@ -112,23 +112,17 @@ window.Zoosh.Views.Estimate = {
     const factoryMargin = factoryTotalMfgCost > 0 ? (Math.round((factoryProfit / factoryTotalMfgCost) * 1000) / 10) : 0;
 
     if (window.Zoosh.App) {
-      window.Zoosh.App.updateMobileHeader('Estimates Dashboard', false);
+      window.Zoosh.App.updateMobileHeader('Production Estimates', false);
     }
 
     container.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 20px;">
-        <!-- Top Title & Search Banner -->
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+        <!-- Clean ERP Page Heading (User Specified) -->
+        <div class="view-header" style="margin-bottom: 0;">
           <div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 22px;">📊</span>
-              <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px;">
-                Excel-Style Costing &amp; Estimates
-              </h1>
-              <span class="badge badge-primary" style="font-size: 11px; padding: 2px 7px;">Excel Architecture</span>
-            </div>
-            <div style="font-size: 12.5px; color: var(--text-muted); margin-top: 3px;">
-              Project-based furniture estimation sheets recreating the 16 manufacturing categories, wood CFT cut list, and profit tier calculations.
+            <h1 class="view-header-title">Production Estimates</h1>
+            <div class="view-header-subtitle">
+              Manage product costing, manufacturing expenses, and estimated selling values.
             </div>
           </div>
 
@@ -140,75 +134,88 @@ window.Zoosh.Views.Estimate = {
                 placeholder="Search projects or clients..." 
                 value="${this.searchQuery}" 
                 oninput="window.Zoosh.Views.Estimate.handleSearch(this.value)"
-                style="padding-left: 32px; font-size: 12.5px;"
+                style="padding-left: 32px; font-size: 13px;"
               />
               <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px;">🔍</span>
             </div>
+            <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Estimate.exportAllEstimatesCsv()" title="Export Summary to CSV">
+              <span>📥</span> Export CSV
+            </button>
           </div>
         </div>
 
-        <!-- Factory Estimate Summary KPI Cards -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px;">
-          <div class="card-panel" style="padding: 16px 18px; border-left: 4px solid #10b981;">
-            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px;">
-              Total Estimated Mfg Cost
+        <!-- 4 Compact ERP Summary KPI Cards (User Specified) -->
+        <div class="summary-cards-grid" style="margin-bottom: 0;">
+          
+          <!-- Card 1: Total Estimated Mfg Cost -->
+          <div class="metric-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <span class="metric-card-label">Total Estimated Mfg Cost</span>
+              <span style="font-size: 16px;">🏭</span>
             </div>
-            <div style="font-size: 22px; font-weight: 800; color: var(--text-main); font-family: var(--font-mono); margin-top: 4px;">
+            <div class="metric-card-value" style="font-family: var(--font-mono); color: var(--text-main);">
               ₹${factoryTotalMfgCost.toLocaleString('en-IN')}
             </div>
-            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">
-              Materials + Labour + Factory Overheads
+            <div class="metric-card-hint">
+              <span>Materials + Labour + Factory Overheads</span>
             </div>
           </div>
 
-          <div class="card-panel" style="padding: 16px 18px; border-left: 4px solid #3b82f6;">
-            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px;">
-              Total Estimated Selling Value
+          <!-- Card 2: Total Estimated Selling Value -->
+          <div class="metric-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <span class="metric-card-label">Total Estimated Selling Value</span>
+              <span style="font-size: 16px;">📈</span>
             </div>
-            <div style="font-size: 22px; font-weight: 800; color: #2563eb; font-family: var(--font-mono); margin-top: 4px;">
+            <div class="metric-card-value" style="font-family: var(--font-mono); color: var(--primary-blue);">
               ₹${factoryTotalSelling.toLocaleString('en-IN')}
             </div>
-            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">
-              Expected Quotation Realization
+            <div class="metric-card-hint">
+              <span>Expected Quotation Realization</span>
             </div>
           </div>
 
-          <div class="card-panel" style="padding: 16px 18px; border-left: 4px solid #059669;">
-            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px;">
-              Expected Factory Profit
+          <!-- Card 3: Expected Factory Profit -->
+          <div class="metric-card success">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <span class="metric-card-label">Expected Factory Profit</span>
+              <span class="badge badge-success" style="font-size: 10px; padding: 1px 6px;">${factoryMargin}% Margin</span>
             </div>
-            <div style="font-size: 22px; font-weight: 800; color: #059669; font-family: var(--font-mono); margin-top: 4px;">
+            <div class="metric-card-value" style="font-family: var(--font-mono); color: var(--color-success);">
               ₹${factoryProfit.toLocaleString('en-IN')}
             </div>
-            <div style="font-size: 11.5px; color: #059669; font-weight: 600; margin-top: 4px;">
-              ${factoryMargin}% Average Margin
+            <div class="metric-card-hint">
+              <span>Projected net manufacturing margin</span>
             </div>
           </div>
 
-          <div class="card-panel" style="padding: 16px 18px; border-left: 4px solid #8b5cf6;">
-            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px;">
-              Products Costed
+          <!-- Card 4: Products Costed -->
+          <div class="metric-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <span class="metric-card-label">Products Costed</span>
+              <span style="font-size: 16px;">📋</span>
             </div>
-            <div style="font-size: 22px; font-weight: 800; color: var(--text-main); font-family: var(--font-mono); margin-top: 4px;">
+            <div class="metric-card-value" style="font-family: var(--font-mono); color: var(--text-main);">
               ${factoryEstimatedProducts} / ${factoryTotalProducts}
             </div>
-            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">
-              ${projects.length} Total Projects in Production
+            <div class="metric-card-hint">
+              <span>${projects.length} Total Registered Projects</span>
             </div>
           </div>
+
         </div>
 
-        <!-- Projects Table -->
-        <div class="card-panel">
-          <div class="card-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <!-- Redesigned Production Projects Table (User Specified Columns) -->
+        <div class="card-panel" style="margin-bottom: 0;">
+          <div class="card-panel-header">
             <div>
               <div class="card-panel-title">Production Projects (${filtered.length})</div>
               <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
-                Select any project to open all its furniture products and individual Excel estimation sheets.
+                Select any project to open all associated furniture products and individual Excel costing sheets.
               </div>
             </div>
             <span style="font-size: 12px; color: var(--text-muted);">
-              Featured: <strong>Ansar Changaramkulam</strong> (Excel Sample)
+              Featured Sample: <strong>Ansar Changaramkulam</strong> (Excel Model)
             </span>
           </div>
 
@@ -221,13 +228,13 @@ window.Zoosh.Views.Estimate = {
               <table class="table" style="margin: 0; width: 100%;">
                 <thead>
                   <tr>
-                    <th style="width: 240px;">Client &amp; Project</th>
-                    <th style="width: 140px;">Products</th>
-                    <th style="width: 160px;">Estimate Status</th>
-                    <th style="width: 140px; text-align: right;">Total Mfg Cost</th>
-                    <th style="width: 140px; text-align: right;">Total Selling</th>
-                    <th style="width: 120px; text-align: right;">Profit Margin</th>
-                    <th style="width: 130px; text-align: center;">Action</th>
+                    <th style="min-width: 220px;">Project / Client</th>
+                    <th style="min-width: 150px;">Products</th>
+                    <th style="min-width: 170px;">Estimation Progress</th>
+                    <th style="min-width: 140px; text-align: right;">Manufacturing Cost</th>
+                    <th style="min-width: 140px; text-align: right;">Selling Value</th>
+                    <th style="min-width: 140px; text-align: right;">Expected Profit</th>
+                    <th style="min-width: 140px; text-align: center;">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -239,66 +246,79 @@ window.Zoosh.Views.Estimate = {
                     const isAnsar = (p.name || '').includes('Ansar');
 
                     return `
-                      <tr style="cursor: pointer; background: ${isAnsar ? '#f0fdf4' : 'transparent'};" onclick="window.Zoosh.Views.Estimate.openProject('${p.id}')">
+                      <tr style="cursor: pointer; transition: background-color 0.15s; ${isAnsar ? 'background: #F0FDF4;' : ''}" onclick="window.Zoosh.Views.Estimate.openProject('${p.id}')">
+                        <!-- Column 1: Project / Client -->
                         <td>
-                          <div style="font-weight: 700; color: var(--text-main); font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+                          <div style="font-weight: 600; color: var(--text-main); font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
                             ${p.name}
-                            ${isAnsar ? `<span class="badge badge-success" style="font-size: 10px; padding: 1px 5px;">Excel Model</span>` : ''}
+                            ${isAnsar ? `<span class="badge badge-success" style="font-size: 9.5px; padding: 1px 5px;">Excel Model</span>` : ''}
                           </div>
                           <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
-                            Client: <strong>${c.name || p.clientName}</strong> &bull; ${p.location}
+                            Client: <strong>${c.name || p.clientName || 'Client'}</strong> &bull; ${p.location}
                           </div>
                           ${p.quotationRef ? `
-                            <div style="font-size: 10.5px; color: #047857; margin-top: 2px;">
-                              Quotation: ${p.quotationRef.quotationNo}
+                            <div style="font-size: 10.5px; color: var(--color-success-text); margin-top: 2px; font-family: var(--font-mono); font-weight: 600;">
+                              📄 ${p.quotationRef.quotationNo}
                             </div>
                           ` : ''}
                         </td>
+
+                        <!-- Column 2: Products -->
                         <td>
-                          <div style="font-size: 13px; font-weight: 700; color: var(--text-main);">
-                            ${s.totalProducts} Furniture Items
+                          <div style="font-size: 12.5px; font-weight: 600; color: var(--text-main);">
+                            ${s.totalProducts} Furniture Product${s.totalProducts !== 1 ? 's' : ''}
                           </div>
-                          <div style="display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap;">
+                          <div style="display: flex; gap: 5px; margin-top: 4px; align-items: center; flex-wrap: wrap;">
                             ${(s.items || []).slice(0, 4).map(it => `
-                              <span style="display: inline-block; width: 18px; height: 18px; border-radius: 4px; background: #e2e8f0; font-size: 10px; text-align: center; line-height: 18px; overflow: hidden;" title="${it.furniture.name}">
-                                ${it.furniture.photo ? `<img src="${it.furniture.photo}" style="width: 100%; height: 100%; object-fit: cover;" />` : '🪑'}
+                              <span style="display: inline-block; width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--border-color); background: #F8FAFC; overflow: hidden; vertical-align: middle;" title="${it.furniture.name}">
+                                ${it.furniture.photo ? `<img src="${it.furniture.photo}" style="width: 100%; height: 100%; object-fit: cover;" />` : `<span style="font-size: 11px; display: flex; align-items: center; justify-content: center; height: 100%;">🪑</span>`}
                               </span>
                             `).join('')}
-                            ${s.totalProducts > 4 ? `<span style="font-size: 10px; color: var(--text-muted); line-height: 18px;">+${s.totalProducts - 4}</span>` : ''}
+                            ${s.totalProducts > 4 ? `<span style="font-size: 10.5px; color: var(--text-muted); font-weight: 600;">+${s.totalProducts - 4}</span>` : ''}
                           </div>
                         </td>
+
+                        <!-- Column 3: Estimation Progress -->
                         <td>
                           <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="flex: 1; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
-                              <div style="width: ${s.totalProducts > 0 ? (s.estimatedCount / s.totalProducts) * 100 : 0}%; height: 100%; background: ${isAllEstimated ? '#10b981' : '#3b82f6'};"></div>
+                            <div class="progress-bar-container" style="flex: 1;">
+                              <div class="progress-bar-fill ${isAllEstimated ? 'success' : ''}" style="width: ${s.totalProducts > 0 ? (s.estimatedCount / s.totalProducts) * 100 : 0}%;"></div>
                             </div>
                             <span style="font-size: 11.5px; font-weight: 700; font-family: var(--font-mono); color: var(--text-main);">
                               ${s.estimatedCount}/${s.totalProducts}
                             </span>
                           </div>
-                          <div style="font-size: 10.5px; color: ${isAllEstimated ? '#059669' : 'var(--text-muted)'}; margin-top: 3px; font-weight: 600;">
-                            ${isAllEstimated ? '✓ All Estimated' : (s.estimatedCount > 0 ? 'In Progress' : 'Pending Estimates')}
+                          <div style="font-size: 10.5px; color: ${isAllEstimated ? 'var(--color-success)' : 'var(--text-muted)'}; margin-top: 3px; font-weight: 600;">
+                            ${isAllEstimated ? '✓ All Costed' : (s.estimatedCount > 0 ? 'Costing in Progress' : 'Pending Costing')}
                           </div>
                         </td>
-                        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700; font-size: 13px; color: var(--text-main);">
+
+                        <!-- Column 4: Manufacturing Cost -->
+                        <td style="text-align: right; font-family: var(--font-mono); font-weight: 600; font-size: 13px; color: var(--text-main);">
                           ₹${s.totalMfgCost.toLocaleString('en-IN')}
                         </td>
-                        <td style="text-align: right; font-family: var(--font-mono); font-weight: 700; font-size: 13px; color: #2563eb;">
+
+                        <!-- Column 5: Selling Value -->
+                        <td style="text-align: right; font-family: var(--font-mono); font-weight: 600; font-size: 13px; color: var(--primary-blue);">
                           ₹${s.totalSellingValue.toLocaleString('en-IN')}
                         </td>
+
+                        <!-- Column 6: Expected Profit -->
                         <td style="text-align: right;">
-                          <div style="font-family: var(--font-mono); font-weight: 700; font-size: 12.5px; color: #059669;">
+                          <div style="font-family: var(--font-mono); font-weight: 700; font-size: 12.5px; color: var(--color-success);">
                             +₹${s.totalProfit.toLocaleString('en-IN')}
                           </div>
-                          <div style="font-size: 10.5px; color: var(--text-muted);">
+                          <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 1px;">
                             ${s.overallProfitMargin}% margin
                           </div>
                         </td>
-                        <td style="text-align: center;">
+
+                        <!-- Column 7: Action -->
+                        <td style="text-align: center;" onclick="event.stopPropagation()">
                           <button 
                             class="btn btn-primary btn-sm" 
-                            style="padding: 4px 10px; font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"
-                            onclick="event.stopPropagation(); window.Zoosh.Views.Estimate.openProject('${p.id}')"
+                            style="padding: 4px 12px; font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;"
+                            onclick="window.Zoosh.Views.Estimate.openProject('${p.id}')"
                           >
                             Open Estimates &rarr;
                           </button>
@@ -366,21 +386,21 @@ window.Zoosh.Views.Estimate = {
     }
 
     container.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: 18px;">
+      <div style="display: flex; flex-direction: column; gap: 16px;">
         <!-- Workspace Navigation Bar -->
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Estimate.closeProject()" style="padding: 5px 12px; font-weight: 600;">
-              &larr; Back to All Projects
+            <button class="btn btn-secondary btn-sm" onclick="window.Zoosh.Views.Estimate.closeProject()" style="font-weight: 600;">
+              &larr; All Estimates
             </button>
             <div style="display: flex; align-items: center; gap: 8px;">
               <span class="badge badge-primary" style="font-family: var(--font-mono); font-weight: 700;">
                 ${client.code || client.clientCode || 'PROJ'}
               </span>
-              <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: var(--text-main);">
+              <h2 style="margin: 0; font-size: 17px; font-weight: 700; color: var(--text-main);">
                 ${project.name}
               </h2>
-              <span style="font-size: 13px; color: var(--text-muted);">&bull; ${project.location}</span>
+              <span style="font-size: 12.5px; color: var(--text-muted);">&bull; ${project.location}</span>
             </div>
           </div>
 
@@ -404,7 +424,7 @@ window.Zoosh.Views.Estimate = {
             <button 
               class="btn btn-primary btn-sm" 
               onclick="window.Zoosh.Views.Estimate.saveCurrentEstimate()" 
-              style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; padding: 6px 14px; background: #059669; border-color: #059669;"
+              style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 6px 14px;"
             >
               💾 Save Estimate
             </button>
@@ -412,55 +432,55 @@ window.Zoosh.Views.Estimate = {
         </div>
 
         <!-- Combined Project Estimate Summary Header Card -->
-        <div class="card-panel" style="background: linear-gradient(to right, #ffffff, #f0fdf4); border: 1.5px solid #a7f3d0;">
-          <div class="card-panel-body" style="padding: 16px 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 12px;">
+        <div class="card-panel" style="margin-bottom: 0; border: 1px solid var(--border-color); background: #FFFFFF;">
+          <div class="card-panel-body" style="padding: 14px 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 10px;">
               <div>
-                <div style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: #065f46; letter-spacing: 0.6px; display: flex; align-items: center; gap: 5px;">
+                <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--primary-blue); letter-spacing: 0.05em; display: flex; align-items: center; gap: 5px;">
                   <span>📈</span> COMBINED PROJECT ESTIMATE SUMMARY
                 </div>
-                <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">
+                <div style="font-size: 12.5px; color: var(--text-secondary); margin-top: 2px;">
                   Aggregate totals of all <strong>${summary.totalProducts} furniture products</strong> under project "${project.name}".
                 </div>
               </div>
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span class="badge ${summary.estimatedCount >= summary.totalProducts ? 'badge-on-schedule' : 'badge-upholstery'}" style="font-size: 11.5px; font-weight: 700; padding: 3px 8px;">
-                  ${summary.estimatedCount} of ${summary.totalProducts} Estimated
+                <span class="badge ${summary.estimatedCount >= summary.totalProducts ? 'badge-success' : 'badge-primary'}" style="font-size: 11px; font-weight: 600; padding: 2px 8px;">
+                  ${summary.estimatedCount} of ${summary.totalProducts} Costed
                 </span>
               </div>
             </div>
 
             <!-- Summary Financial Metrics Ribbon -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; padding-top: 10px; border-top: 1px solid #d1fae5;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle);">
               <div>
-                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #047857;">Total Mfg Cost</div>
-                <div style="font-size: 20px; font-weight: 800; color: var(--text-main); font-family: var(--font-mono); margin-top: 2px;">
+                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary);">Total Mfg Cost</div>
+                <div style="font-size: 18px; font-weight: 700; color: var(--text-main); font-family: var(--font-mono); margin-top: 2px;">
                   ₹${summary.totalMfgCost.toLocaleString('en-IN')}
                 </div>
                 <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 1px;">Combined item costs</div>
               </div>
 
               <div>
-                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #1e40af;">Total Selling Value</div>
-                <div style="font-size: 20px; font-weight: 800; color: #1e40af; font-family: var(--font-mono); margin-top: 2px;">
+                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--primary-blue);">Total Selling Value</div>
+                <div style="font-size: 18px; font-weight: 700; color: var(--primary-blue); font-family: var(--font-mono); margin-top: 2px;">
                   ₹${summary.totalSellingValue.toLocaleString('en-IN')}
                 </div>
                 <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 1px;">Total Quotation Price</div>
               </div>
 
               <div>
-                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #065f46;">Combined Profit</div>
-                <div style="font-size: 20px; font-weight: 800; color: #059669; font-family: var(--font-mono); margin-top: 2px;">
+                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--color-success);">Combined Profit</div>
+                <div style="font-size: 18px; font-weight: 700; color: var(--color-success); font-family: var(--font-mono); margin-top: 2px;">
                   +₹${summary.totalProfit.toLocaleString('en-IN')}
                 </div>
-                <div style="font-size: 10.5px; color: #059669; font-weight: 700; margin-top: 1px;">
+                <div style="font-size: 10.5px; color: var(--color-success); font-weight: 600; margin-top: 1px;">
                   ${summary.overallProfitMargin}% Overall Margin
                 </div>
               </div>
 
               <div>
                 <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #b45309;">Total Wood CFT</div>
-                <div style="font-size: 20px; font-weight: 800; color: #b45309; font-family: var(--font-mono); margin-top: 2px;">
+                <div style="font-size: 18px; font-weight: 700; color: #b45309; font-family: var(--font-mono); margin-top: 2px;">
                   ${summary.totalWoodCft} CFT
                 </div>
                 <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 1px;">Timber requirement</div>
@@ -470,10 +490,10 @@ window.Zoosh.Views.Estimate = {
         </div>
 
         <!-- Product Selector Ribbon / Tabs -->
-        <div class="card-panel" style="padding: 12px 16px;">
-          <div style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+        <div class="card-panel" style="padding: 12px 16px; margin-bottom: 0;">
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.05em; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
             <span>Project Products (${furnitureList.length} Items) &mdash; Select Product Sheet:</span>
-            <span style="font-size: 11px; color: #059669; font-weight: 600;">Each product maintains its own independent calculation sheet</span>
+            <span style="font-size: 11px; color: var(--primary-blue); font-weight: 500;">Independent Excel calculation per product</span>
           </div>
 
           <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;">
@@ -491,35 +511,34 @@ window.Zoosh.Views.Estimate = {
                     display: flex;
                     align-items: center;
                     gap: 10px;
-                    padding: 8px 14px;
-                    border-radius: 8px;
+                    padding: 8px 12px;
+                    border-radius: var(--radius-sm);
                     cursor: pointer;
                     user-select: none;
                     white-space: nowrap;
                     transition: all 0.15s ease;
-                    border: 2px solid ${isSelected ? '#10b981' : '#e2e8f0'};
-                    background: ${isSelected ? '#ecfdf5' : '#ffffff'};
-                    box-shadow: ${isSelected ? '0 2px 6px rgba(16, 185, 129, 0.15)' : 'none'};
+                    border: 1.5px solid ${isSelected ? 'var(--primary-blue)' : 'var(--border-color)'};
+                    background: ${isSelected ? 'var(--bg-blue-light)' : '#ffffff'};
                   "
                 >
                   ${photoUrl ? `
-                    <img src="${photoUrl}" alt="${furn.name}" style="width: 36px; height: 36px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; flex-shrink: 0;" />
+                    <img src="${photoUrl}" alt="${furn.name}" style="width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); flex-shrink: 0;" />
                   ` : `
-                    <div style="width: 36px; height: 36px; border-radius: 6px; background: #f1f5f9; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #94a3b8; flex-shrink: 0;">
+                    <div style="width: 34px; height: 34px; border-radius: 6px; background: #f8fafc; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--text-muted); flex-shrink: 0;">
                       🪑
                     </div>
                   `}
                   <div>
-                    <div style="font-size: 13px; font-weight: 700; color: ${isSelected ? '#065f46' : 'var(--text-main)'};">
+                    <div style="font-size: 13px; font-weight: 600; color: ${isSelected ? 'var(--primary-blue)' : 'var(--text-main)'};">
                       ${furn.name || furn.furnitureName}
                     </div>
                     <div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; margin-top: 1px;">
                       <span>Qty: <strong>${furn.qty || 1}</strong></span>
                       <span>&bull;</span>
                       ${isSaved ? `
-                        <span style="color: #059669; font-weight: 700;">✓ ₹${sellingVal.toLocaleString('en-IN')}</span>
+                        <span style="color: var(--color-success); font-weight: 600;">✓ ₹${sellingVal.toLocaleString('en-IN')}</span>
                       ` : `
-                        <span style="color: #f59e0b; font-weight: 600;">Draft</span>
+                        <span style="color: var(--color-warning); font-weight: 500;">Draft</span>
                       `}
                     </div>
                   </div>
@@ -569,7 +588,7 @@ window.Zoosh.Views.Estimate = {
       <div id="excel-estimate-sheet-container" style="display: flex; flex-direction: column; gap: 16px;">
         
         <!-- Product Information Header Card (Excel Header A2:G3) -->
-        <div class="card-panel" style="border-top: 4px solid #10b981;">
+        <div class="card-panel" style="border-top: 3px solid var(--primary-blue); margin-bottom: 0;">
           <div class="card-panel-body" style="padding: 16px 20px;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
               
@@ -578,16 +597,16 @@ window.Zoosh.Views.Estimate = {
                 <!-- Product Image with quick change / preview -->
                 <div style="position: relative; flex-shrink: 0;">
                   ${est.photo ? `
-                    <img id="est-product-img" src="${est.photo}" alt="${est.productName}" style="width: 88px; height: 88px; object-fit: cover; border-radius: 8px; border: 2px solid #cbd5e1; box-shadow: 0 2px 6px rgba(0,0,0,0.06);" />
+                    <img id="est-product-img" src="${est.photo}" alt="${est.productName}" style="width: 84px; height: 84px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);" />
                   ` : `
-                    <div id="est-product-img-placeholder" style="width: 88px; height: 88px; border-radius: 8px; background: #f8fafc; border: 2px dashed #cbd5e1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; font-size: 28px;">
+                    <div id="est-product-img-placeholder" style="width: 84px; height: 84px; border-radius: var(--radius-sm); background: #f8fafc; border: 1.5px dashed var(--border-color); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #94a3b8; font-size: 24px;">
                       🪑
-                      <span style="font-size: 9.5px; font-weight: 600; margin-top: 4px; color: #64748b;">No Image</span>
+                      <span style="font-size: 9.5px; font-weight: 600; margin-top: 4px; color: var(--text-muted);">No Image</span>
                     </div>
                   `}
                   <label 
                     class="btn btn-secondary btn-sm" 
-                    style="position: absolute; bottom: -8px; right: -8px; padding: 2px 6px; font-size: 10px; border-radius: 12px; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.15);"
+                    style="position: absolute; bottom: -6px; right: -6px; padding: 2px 6px; font-size: 9.5px; border-radius: 10px; cursor: pointer; box-shadow: var(--shadow-sm);"
                     title="Upload or change product photo"
                   >
                     📷 Change
@@ -597,7 +616,7 @@ window.Zoosh.Views.Estimate = {
 
                 <div>
                   <div style="display: flex; align-items: center; gap: 8px;">
-                    <span class="badge badge-primary" style="font-family: var(--font-mono); font-size: 11px; font-weight: 700;">
+                    <span class="badge badge-primary" style="font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;">
                       Product #${est.productNo || '1'}
                     </span>
                     <span style="font-size: 12px; color: var(--text-muted);">
@@ -605,18 +624,18 @@ window.Zoosh.Views.Estimate = {
                     </span>
                   </div>
 
-                  <div style="margin-top: 6px;">
+                  <div style="margin-top: 4px;">
                     <input 
                       type="text" 
                       class="form-input" 
                       value="${est.productName}" 
                       oninput="window.Zoosh.Views.Estimate.updateProductField('productName', this.value)"
-                      style="font-size: 18px; font-weight: 800; color: var(--text-main); padding: 4px 8px; border: 1px solid transparent; background: transparent; width: 100%; max-width: 380px; letter-spacing: -0.3px;"
+                      style="font-size: 16px; font-weight: 700; color: var(--text-main); padding: 4px 8px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); width: 100%; max-width: 360px;"
                       title="Click to edit product name"
                     />
                   </div>
 
-                  <div style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 14px; margin-top: 4px;">
+                  <div style="font-size: 11.5px; color: var(--text-muted); display: flex; align-items: center; gap: 14px; margin-top: 6px;">
                     <div style="display: flex; align-items: center; gap: 6px;">
                       <span>Estimate Date:</span>
                       <input 
@@ -624,7 +643,7 @@ window.Zoosh.Views.Estimate = {
                         class="form-input" 
                         value="${est.estimateDate || window.Zoosh.Config.CURRENT_DATE}" 
                         onchange="window.Zoosh.Views.Estimate.updateProductField('estimateDate', this.value)"
-                        style="padding: 2px 6px; font-size: 11.5px; width: 130px;"
+                        style="padding: 2px 6px; font-size: 11.5px; width: 130px; font-family: var(--font-mono);"
                       />
                     </div>
                   </div>
@@ -632,9 +651,9 @@ window.Zoosh.Views.Estimate = {
               </div>
 
               <!-- Right: Quantity & Unit Cost Summary (Excel J3:K3) -->
-              <div style="display: flex; gap: 16px; align-items: center; background: #f8fafc; padding: 12px 18px; border-radius: 8px; border: 1px solid var(--border-light);">
+              <div style="display: flex; gap: 16px; align-items: center; background: #F8FAFC; padding: 12px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
                 <div>
-                  <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px;">Product Quantity</div>
+                  <div style="font-size: 10.5px; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); letter-spacing: 0.05em;">Product Quantity</div>
                   <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                     <input 
                       type="number" 
@@ -642,26 +661,26 @@ window.Zoosh.Views.Estimate = {
                       class="form-input" 
                       value="${est.productQty || 1}" 
                       oninput="window.Zoosh.Views.Estimate.updateProductQuantity(this.value)"
-                      style="width: 75px; font-size: 16px; font-weight: 800; font-family: var(--font-mono); text-align: center; padding: 4px;"
+                      style="width: 70px; font-size: 15px; font-weight: 700; font-family: var(--font-mono); text-align: center; padding: 4px;"
                     />
-                    <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">Units</span>
+                    <span style="font-size: 11.5px; font-weight: 600; color: var(--text-muted);">Units</span>
                   </div>
                 </div>
 
-                <div style="height: 38px; width: 1px; background: #cbd5e1;"></div>
+                <div style="height: 34px; width: 1px; background: var(--border-color);"></div>
 
                 <div>
-                  <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px;">Cost / Item (Unit)</div>
-                  <div style="font-size: 20px; font-weight: 800; color: var(--text-main); font-family: var(--font-mono); margin-top: 4px;">
+                  <div style="font-size: 10.5px; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); letter-spacing: 0.05em;">Cost / Item (Unit)</div>
+                  <div style="font-size: 18px; font-weight: 700; color: var(--text-main); font-family: var(--font-mono); margin-top: 4px;">
                     ₹${(totals.unitCost || 0).toLocaleString('en-IN')}
                   </div>
                 </div>
 
-                <div style="height: 38px; width: 1px; background: #cbd5e1;"></div>
+                <div style="height: 34px; width: 1px; background: var(--border-color);"></div>
 
                 <div>
-                  <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #1e40af; letter-spacing: 0.5px;">Total Mfg Cost</div>
-                  <div style="font-size: 20px; font-weight: 800; color: #1e40af; font-family: var(--font-mono); margin-top: 4px;">
+                  <div style="font-size: 10.5px; text-transform: uppercase; font-weight: 700; color: var(--primary-blue); letter-spacing: 0.05em;">Total Mfg Cost</div>
+                  <div style="font-size: 18px; font-weight: 700; color: var(--primary-blue); font-family: var(--font-mono); margin-top: 4px;">
                     ₹${(totals.totalCost || 0).toLocaleString('en-IN')}
                   </div>
                 </div>
@@ -671,97 +690,97 @@ window.Zoosh.Views.Estimate = {
         </div>
 
         <!-- ROW 1 GRAND TOTALS HIGHLIGHT BAR (Excel Recreation Row 1) -->
-        <div class="card-panel" style="background: #064e3b; border: 1px solid #065f46; color: #ffffff; padding: 12px 16px;">
+        <div class="card-panel" style="background: #0F172A; border: 1px solid #1E293B; color: #FFFFFF; padding: 12px 16px; margin-bottom: 0;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: #6ee7b7; display: flex; align-items: center; gap: 6px;">
+            <div style="font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8; display: flex; align-items: center; gap: 6px;">
               <span>⚡</span> ROW 1 GRAND TOTALS HIGHLIGHT BAR &mdash; RECONSTRUCTED FROM EXCEL
             </div>
-            <div style="font-size: 11px; color: #a7f3d0;">
-              All totals multiplied across full quantity (${est.productQty || 1} units)
+            <div style="font-size: 11px; color: #64748B;">
+              Multiplied across batch quantity (${est.productQty || 1} units)
             </div>
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); gap: 8px;">
-            <div style="background: rgba(255,255,255,0.08); padding: 8px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 10px; text-transform: uppercase; color: #a7f3d0; font-weight: 700;">W. CFT</div>
-              <div id="hl-metric-woodCft" style="font-size: 13.5px; font-weight: 800; font-family: var(--font-mono); margin-top: 2px;">
+            <div style="background: rgba(255,255,255,0.06); padding: 7px 8px; border-radius: 6px; text-align: center; border: 1px solid rgba(255,255,255,0.08);">
+              <div style="font-size: 9.5px; text-transform: uppercase; color: #94A3B8; font-weight: 600;">W. CFT</div>
+              <div id="hl-metric-woodCft" style="font-size: 13px; font-weight: 700; font-family: var(--font-mono); margin-top: 2px; color: #F8FAFC;">
                 ${highlightMetrics.woodCft}
               </div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.08); padding: 8px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 10px; text-transform: uppercase; color: #a7f3d0; font-weight: 700;">C. Lab</div>
-              <div id="hl-metric-cLab" style="font-size: 13.5px; font-weight: 800; font-family: var(--font-mono); margin-top: 2px;">
+            <div style="background: rgba(255,255,255,0.06); padding: 7px 8px; border-radius: 6px; text-align: center; border: 1px solid rgba(255,255,255,0.08);">
+              <div style="font-size: 9.5px; text-transform: uppercase; color: #94A3B8; font-weight: 600;">C. Lab</div>
+              <div id="hl-metric-cLab" style="font-size: 13px; font-weight: 700; font-family: var(--font-mono); margin-top: 2px; color: #F8FAFC;">
                 ₹${highlightMetrics.cLab.toLocaleString('en-IN')}
               </div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.08); padding: 8px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 10px; text-transform: uppercase; color: #a7f3d0; font-weight: 700;">P. Mat.</div>
-              <div id="hl-metric-pMat" style="font-size: 13.5px; font-weight: 800; font-family: var(--font-mono); margin-top: 2px;">
+            <div style="background: rgba(255,255,255,0.06); padding: 7px 8px; border-radius: 6px; text-align: center; border: 1px solid rgba(255,255,255,0.08);">
+              <div style="font-size: 9.5px; text-transform: uppercase; color: #94A3B8; font-weight: 600;">P. Mat.</div>
+              <div id="hl-metric-pMat" style="font-size: 13px; font-weight: 700; font-family: var(--font-mono); margin-top: 2px; color: #F8FAFC;">
                 ₹${highlightMetrics.pMat.toLocaleString('en-IN')}
               </div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.08); padding: 8px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 10px; text-transform: uppercase; color: #a7f3d0; font-weight: 700;">P. Lab.</div>
-              <div id="hl-metric-pLab" style="font-size: 13.5px; font-weight: 800; font-family: var(--font-mono); margin-top: 2px;">
+            <div style="background: rgba(255,255,255,0.06); padding: 7px 8px; border-radius: 6px; text-align: center; border: 1px solid rgba(255,255,255,0.08);">
+              <div style="font-size: 9.5px; text-transform: uppercase; color: #94A3B8; font-weight: 600;">P. Lab.</div>
+              <div id="hl-metric-pLab" style="font-size: 13px; font-weight: 700; font-family: var(--font-mono); margin-top: 2px; color: #F8FAFC;">
                 ₹${highlightMetrics.pLab.toLocaleString('en-IN')}
               </div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.08); padding: 8px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 10px; text-transform: uppercase; color: #a7f3d0; font-weight: 700;">Packing</div>
-              <div id="hl-metric-packing" style="font-size: 13.5px; font-weight: 800; font-family: var(--font-mono); margin-top: 2px;">
+            <div style="background: rgba(255,255,255,0.06); padding: 7px 8px; border-radius: 6px; text-align: center; border: 1px solid rgba(255,255,255,0.08);">
+              <div style="font-size: 9.5px; text-transform: uppercase; color: #94A3B8; font-weight: 600;">Packing</div>
+              <div id="hl-metric-packing" style="font-size: 13px; font-weight: 700; font-family: var(--font-mono); margin-top: 2px; color: #F8FAFC;">
                 ₹${highlightMetrics.packing.toLocaleString('en-IN')}
               </div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.08); padding: 8px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 10px; text-transform: uppercase; color: #a7f3d0; font-weight: 700;">F. Expense</div>
-              <div id="hl-metric-fExpense" style="font-size: 13.5px; font-weight: 800; font-family: var(--font-mono); margin-top: 2px;">
+            <div style="background: rgba(255,255,255,0.06); padding: 7px 8px; border-radius: 6px; text-align: center; border: 1px solid rgba(255,255,255,0.08);">
+              <div style="font-size: 9.5px; text-transform: uppercase; color: #94A3B8; font-weight: 600;">F. Expense</div>
+              <div id="hl-metric-fExpense" style="font-size: 13px; font-weight: 700; font-family: var(--font-mono); margin-top: 2px; color: #F8FAFC;">
                 ₹${highlightMetrics.fExpense.toLocaleString('en-IN')}
               </div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.08); padding: 8px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 10px; text-transform: uppercase; color: #a7f3d0; font-weight: 700;">Fabric</div>
-              <div id="hl-metric-fabric" style="font-size: 13.5px; font-weight: 800; font-family: var(--font-mono); margin-top: 2px;">
+            <div style="background: rgba(255,255,255,0.06); padding: 7px 8px; border-radius: 6px; text-align: center; border: 1px solid rgba(255,255,255,0.08);">
+              <div style="font-size: 9.5px; text-transform: uppercase; color: #94A3B8; font-weight: 600;">Fabric</div>
+              <div id="hl-metric-fabric" style="font-size: 13px; font-weight: 700; font-family: var(--font-mono); margin-top: 2px; color: #F8FAFC;">
                 ₹${highlightMetrics.fabric.toLocaleString('en-IN')}
               </div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.08); padding: 8px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 10px; text-transform: uppercase; color: #a7f3d0; font-weight: 700;">U. Lab.</div>
-              <div id="hl-metric-uLab" style="font-size: 13.5px; font-weight: 800; font-family: var(--font-mono); margin-top: 2px;">
+            <div style="background: rgba(255,255,255,0.06); padding: 7px 8px; border-radius: 6px; text-align: center; border: 1px solid rgba(255,255,255,0.08);">
+              <div style="font-size: 9.5px; text-transform: uppercase; color: #94A3B8; font-weight: 600;">U. Lab.</div>
+              <div id="hl-metric-uLab" style="font-size: 13px; font-weight: 700; font-family: var(--font-mono); margin-top: 2px; color: #F8FAFC;">
                 ₹${highlightMetrics.uLab.toLocaleString('en-IN')}
               </div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.08); padding: 8px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 10px; text-transform: uppercase; color: #a7f3d0; font-weight: 700;">Foam</div>
-              <div id="hl-metric-foam" style="font-size: 13.5px; font-weight: 800; font-family: var(--font-mono); margin-top: 2px;">
+            <div style="background: rgba(255,255,255,0.06); padding: 7px 8px; border-radius: 6px; text-align: center; border: 1px solid rgba(255,255,255,0.08);">
+              <div style="font-size: 9.5px; text-transform: uppercase; color: #94A3B8; font-weight: 600;">Foam</div>
+              <div id="hl-metric-foam" style="font-size: 13px; font-weight: 700; font-family: var(--font-mono); margin-top: 2px; color: #F8FAFC;">
                 ₹${highlightMetrics.foam.toLocaleString('en-IN')}
               </div>
             </div>
 
-            <div style="background: rgba(16, 185, 129, 0.25); border: 1px solid #10b981; padding: 8px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 10px; text-transform: uppercase; color: #6ee7b7; font-weight: 700;">25% Profit</div>
-              <div id="hl-metric-profit25" style="font-size: 13.5px; font-weight: 800; font-family: var(--font-mono); color: #ffffff; margin-top: 2px;">
+            <div style="background: rgba(22, 163, 74, 0.2); border: 1px solid rgba(22, 163, 74, 0.4); padding: 7px 8px; border-radius: 6px; text-align: center;">
+              <div style="font-size: 9.5px; text-transform: uppercase; color: #86EFAC; font-weight: 700;">25% Profit</div>
+              <div id="hl-metric-profit25" style="font-size: 13px; font-weight: 700; font-family: var(--font-mono); color: #FFFFFF; margin-top: 2px;">
                 ₹${highlightMetrics.profit25.toLocaleString('en-IN')}
               </div>
             </div>
 
-            <div style="background: rgba(59, 130, 246, 0.25); border: 1px solid #3b82f6; padding: 8px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 10px; text-transform: uppercase; color: #93c5fd; font-weight: 700;">30% Profit</div>
-              <div id="hl-metric-profit30" style="font-size: 13.5px; font-weight: 800; font-family: var(--font-mono); color: #ffffff; margin-top: 2px;">
+            <div style="background: rgba(37, 99, 235, 0.2); border: 1px solid rgba(37, 99, 235, 0.4); padding: 7px 8px; border-radius: 6px; text-align: center;">
+              <div style="font-size: 9.5px; text-transform: uppercase; color: #93C5FD; font-weight: 700;">30% Profit</div>
+              <div id="hl-metric-profit30" style="font-size: 13px; font-weight: 700; font-family: var(--font-mono); color: #FFFFFF; margin-top: 2px;">
                 ₹${highlightMetrics.profit30.toLocaleString('en-IN')}
               </div>
             </div>
 
-            <div style="background: #10b981; color: #064e3b; padding: 8px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 10px; text-transform: uppercase; font-weight: 800;">T. Qtn Amt.</div>
-              <div id="hl-metric-totalSelling" style="font-size: 14px; font-weight: 900; font-family: var(--font-mono); margin-top: 2px;">
+            <div style="background: var(--primary-blue); color: #FFFFFF; padding: 7px 8px; border-radius: 6px; text-align: center; border: 1px solid var(--primary-blue);">
+              <div style="font-size: 9.5px; text-transform: uppercase; font-weight: 700; opacity: 0.9;">T. Qtn Amt.</div>
+              <div id="hl-metric-totalSelling" style="font-size: 13.5px; font-weight: 800; font-family: var(--font-mono); margin-top: 2px;">
                 ₹${(totals.totalSellingPrice || 0).toLocaleString('en-IN')}
               </div>
             </div>
@@ -836,7 +855,7 @@ window.Zoosh.Views.Estimate = {
                   type="button" 
                   class="btn btn-primary btn-sm" 
                   onclick="window.Zoosh.Views.Estimate.addCostRow()"
-                  style="padding: 4px 10px; font-size: 11.5px; font-weight: 700; background: #059669; border-color: #059669; display: flex; align-items: center; gap: 4px;"
+                  style="padding: 4px 10px; font-size: 11.5px; font-weight: 600; display: flex; align-items: center; gap: 4px;"
                 >
                   <span>➕</span> Add Particular / Category
                 </button>
@@ -846,12 +865,12 @@ window.Zoosh.Views.Estimate = {
             <div style="overflow-x: auto;">
               <table class="table" style="margin: 0; width: 100%; border-collapse: collapse;">
                 <thead>
-                  <tr style="background: #f1f5f9; font-size: 11px;">
-                    <th style="width: 34px; text-align: center; padding: 6px;">#</th>
-                    <th style="padding: 6px 10px;">Particulars / Category</th>
-                    <th style="width: 85px; text-align: right; padding: 6px 8px;">Rate (₹)</th>
-                    <th style="width: 65px; text-align: right; padding: 6px 8px;">Qty</th>
-                    <th style="width: 95px; text-align: right; padding: 6px 8px;">Amount (₹)</th>
+                  <tr style="background: #F8FAFC; font-size: 11px;">
+                    <th style="width: 34px; text-align: center; padding: 8px 6px;">#</th>
+                    <th style="padding: 8px 10px;">Particulars / Category</th>
+                    <th style="width: 85px; text-align: right; padding: 8px 8px;">Rate (₹)</th>
+                    <th style="width: 65px; text-align: right; padding: 8px 8px;">Qty</th>
+                    <th style="width: 95px; text-align: right; padding: 8px 8px;">Amount (₹)</th>
                     <th style="width: 32px; padding: 4px; text-align: center;"></th>
                   </tr>
                 </thead>
@@ -1107,8 +1126,8 @@ window.Zoosh.Views.Estimate = {
             </div>
 
             <!-- GRAND TOTALS, PROFIT TIERS & PRICING CARDS -->
-            <div class="card-panel" style="padding: 16px; border: 1.5px solid #10b981; background: #f0fdf4;">
-              <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; color: #065f46; letter-spacing: 0.6px; margin-bottom: 12px; display: flex; justify-content: space-between;">
+            <div class="card-panel" style="padding: 16px; border: 1px solid var(--border-color); background: #FFFFFF; margin-bottom: 0;">
+              <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.05em; margin-bottom: 12px; display: flex; justify-content: space-between;">
                 <span>💰 GRAND TOTALS &amp; PROFIT CALCULATION</span>
                 <span>Quantity: <strong>${est.productQty || 1} Units</strong></span>
               </div>
@@ -1119,19 +1138,19 @@ window.Zoosh.Views.Estimate = {
                 <div 
                   onclick="window.Zoosh.Views.Estimate.selectProfitTier('25')"
                   style="
-                    border: 2px solid ${est.selectedProfitTier === '25' ? '#10b981' : '#cbd5e1'};
-                    background: ${est.selectedProfitTier === '25' ? '#ffffff' : '#f8fafc'};
+                    border: 1.5px solid ${est.selectedProfitTier === '25' ? 'var(--primary-blue)' : 'var(--border-color)'};
+                    background: ${est.selectedProfitTier === '25' ? 'var(--bg-blue-light)' : '#FFFFFF'};
                     padding: 10px;
-                    border-radius: 8px;
+                    border-radius: var(--radius-sm);
                     cursor: pointer;
-                    box-shadow: ${est.selectedProfitTier === '25' ? '0 2px 6px rgba(16, 185, 129, 0.15)' : 'none'};
+                    transition: all 0.15s;
                   "
                 >
-                  <div style="font-size: 11px; font-weight: 700; color: #065f46; display: flex; justify-content: space-between;">
+                  <div style="font-size: 11px; font-weight: 600; color: ${est.selectedProfitTier === '25' ? 'var(--primary-blue)' : 'var(--text-main)'}; display: flex; justify-content: space-between;">
                     <span>25% Profit</span>
-                    ${est.selectedProfitTier === '25' ? '<span>✓ Active</span>' : ''}
+                    ${est.selectedProfitTier === '25' ? '<span style="font-weight: 700;">✓ Active</span>' : ''}
                   </div>
-                  <div id="gt-profit25-amount" style="font-size: 14px; font-weight: 800; font-family: var(--font-mono); color: var(--text-main); margin-top: 3px;">
+                  <div id="gt-profit25-amount" style="font-size: 13.5px; font-weight: 700; font-family: var(--font-mono); color: var(--text-main); margin-top: 3px;">
                     +₹${(totals.profit25 || 0).toLocaleString('en-IN')}
                   </div>
                   <div id="gt-profit25-total" style="font-size: 10.5px; color: var(--text-muted); margin-top: 2px;">
@@ -1143,19 +1162,19 @@ window.Zoosh.Views.Estimate = {
                 <div 
                   onclick="window.Zoosh.Views.Estimate.selectProfitTier('30')"
                   style="
-                    border: 2px solid ${est.selectedProfitTier === '30' ? '#3b82f6' : '#cbd5e1'};
-                    background: ${est.selectedProfitTier === '30' ? '#ffffff' : '#f8fafc'};
+                    border: 1.5px solid ${est.selectedProfitTier === '30' ? 'var(--primary-blue)' : 'var(--border-color)'};
+                    background: ${est.selectedProfitTier === '30' ? 'var(--bg-blue-light)' : '#FFFFFF'};
                     padding: 10px;
-                    border-radius: 8px;
+                    border-radius: var(--radius-sm);
                     cursor: pointer;
-                    box-shadow: ${est.selectedProfitTier === '30' ? '0 2px 6px rgba(59, 130, 246, 0.15)' : 'none'};
+                    transition: all 0.15s;
                   "
                 >
-                  <div style="font-size: 11px; font-weight: 700; color: #1e40af; display: flex; justify-content: space-between;">
+                  <div style="font-size: 11px; font-weight: 600; color: ${est.selectedProfitTier === '30' ? 'var(--primary-blue)' : 'var(--text-main)'}; display: flex; justify-content: space-between;">
                     <span>30% Profit</span>
-                    ${est.selectedProfitTier === '30' ? '<span>✓ Active</span>' : ''}
+                    ${est.selectedProfitTier === '30' ? '<span style="font-weight: 700;">✓ Active</span>' : ''}
                   </div>
-                  <div id="gt-profit30-amount" style="font-size: 14px; font-weight: 800; font-family: var(--font-mono); color: var(--text-main); margin-top: 3px;">
+                  <div id="gt-profit30-amount" style="font-size: 13.5px; font-weight: 700; font-family: var(--font-mono); color: var(--text-main); margin-top: 3px;">
                     +₹${(totals.profit30 || 0).toLocaleString('en-IN')}
                   </div>
                   <div id="gt-profit30-total" style="font-size: 10.5px; color: var(--text-muted); margin-top: 2px;">
@@ -1167,17 +1186,17 @@ window.Zoosh.Views.Estimate = {
                 <div 
                   onclick="window.Zoosh.Views.Estimate.selectProfitTier('custom')"
                   style="
-                    border: 2px solid ${est.selectedProfitTier === 'custom' ? '#8b5cf6' : '#cbd5e1'};
-                    background: ${est.selectedProfitTier === 'custom' ? '#ffffff' : '#f8fafc'};
+                    border: 1.5px solid ${est.selectedProfitTier === 'custom' ? 'var(--primary-blue)' : 'var(--border-color)'};
+                    background: ${est.selectedProfitTier === 'custom' ? 'var(--bg-blue-light)' : '#FFFFFF'};
                     padding: 10px;
-                    border-radius: 8px;
+                    border-radius: var(--radius-sm);
                     cursor: pointer;
-                    box-shadow: ${est.selectedProfitTier === 'custom' ? '0 2px 6px rgba(139, 92, 246, 0.15)' : 'none'};
+                    transition: all 0.15s;
                   "
                 >
-                  <div style="font-size: 11px; font-weight: 700; color: #6d28d9; display: flex; justify-content: space-between;">
+                  <div style="font-size: 11px; font-weight: 600; color: ${est.selectedProfitTier === 'custom' ? 'var(--primary-blue)' : 'var(--text-main)'}; display: flex; justify-content: space-between;">
                     <span>Custom Margin</span>
-                    ${est.selectedProfitTier === 'custom' ? '<span>✓ Active</span>' : ''}
+                    ${est.selectedProfitTier === 'custom' ? '<span style="font-weight: 700;">✓ Active</span>' : ''}
                   </div>
                   <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
                     <input 
@@ -1186,10 +1205,10 @@ window.Zoosh.Views.Estimate = {
                       max="200" 
                       value="${est.customProfitPercent || 25}" 
                       oninput="window.Zoosh.Views.Estimate.updateCustomProfitPercent(this.value)"
-                      style="width: 50px; padding: 1px 4px; font-size: 13px; font-weight: 800; font-family: var(--font-mono); text-align: center; border: 1px solid #cbd5e1; border-radius: 4px;"
+                      style="width: 46px; padding: 1px 4px; font-size: 12px; font-weight: 700; font-family: var(--font-mono); text-align: center; border: 1px solid var(--border-color); border-radius: 4px;"
                     />
-                    <span style="font-size: 12px; font-weight: 700;">%</span>
-                    <span id="gt-custom-profit-amount" style="font-size: 12px; font-family: var(--font-mono); font-weight: 700; margin-left: 4px;">
+                    <span style="font-size: 11.5px; font-weight: 600;">%</span>
+                    <span id="gt-custom-profit-amount" style="font-size: 11.5px; font-family: var(--font-mono); font-weight: 700; margin-left: 2px; color: var(--color-success);">
                       +₹${(totals.customProfitAmount || 0).toLocaleString('en-IN')}
                     </span>
                   </div>
@@ -1197,33 +1216,33 @@ window.Zoosh.Views.Estimate = {
               </div>
 
               <!-- Final Pricing Highlight -->
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: #ffffff; padding: 14px; border-radius: 8px; border: 1px solid #a7f3d0;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: #FFFFFF; padding: 14px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
                 <div>
-                  <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-muted);">Selling Price Per Unit</div>
-                  <div id="gt-unit-selling-price" style="font-size: 20px; font-weight: 900; font-family: var(--font-mono); color: #065f46; margin-top: 2px;">
+                  <div style="font-size: 10.5px; text-transform: uppercase; font-weight: 700; color: var(--text-secondary); letter-spacing: 0.04em;">Selling Price Per Unit</div>
+                  <div id="gt-unit-selling-price" style="font-size: 18px; font-weight: 700; font-family: var(--font-mono); color: var(--text-main); margin-top: 2px;">
                     ₹${(totals.unitSellingPrice || 0).toLocaleString('en-IN')}
                   </div>
-                  <div id="gt-unit-mfg-cost" style="font-size: 10.5px; color: var(--text-muted); margin-top: 2px;">Mfg: ₹${(totals.unitCost || 0).toLocaleString('en-IN')} / unit</div>
+                  <div id="gt-unit-mfg-cost" style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Mfg: ₹${(totals.unitCost || 0).toLocaleString('en-IN')} / unit</div>
                 </div>
 
                 <div>
-                  <div style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: #047857;">TOTAL QUOTATION AMOUNT</div>
-                  <div id="gt-total-selling-price" style="font-size: 22px; font-weight: 900; font-family: var(--font-mono); color: #059669; margin-top: 2px;">
+                  <div style="font-size: 10.5px; text-transform: uppercase; font-weight: 700; color: var(--color-success); letter-spacing: 0.04em;">TOTAL QUOTATION AMOUNT</div>
+                  <div id="gt-total-selling-price" style="font-size: 20px; font-weight: 800; font-family: var(--font-mono); color: var(--color-success); margin-top: 2px;">
                     ₹${(totals.totalSellingPrice || 0).toLocaleString('en-IN')}
                   </div>
-                  <div id="gt-active-profit-amount" style="font-size: 10.5px; color: #059669; font-weight: 700; margin-top: 2px;">
+                  <div id="gt-active-profit-amount" style="font-size: 11px; color: var(--color-success); font-weight: 600; margin-top: 2px;">
                     Net Profit: +₹${(totals.activeProfitAmount || totals.profit25 || 0).toLocaleString('en-IN')}
                   </div>
                 </div>
               </div>
 
               <!-- Footer Actions -->
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid #d1fae5;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border-subtle);">
                 <button 
                   type="button" 
                   class="btn btn-secondary btn-sm" 
                   onclick="window.Zoosh.Views.Estimate.resetToSampleExcelModel()"
-                  style="font-size: 11px; padding: 4px 8px; color: #64748b;"
+                  style="font-size: 11px; padding: 4px 8px; color: var(--text-secondary);"
                   title="Prefill with exact Sitout Chair numbers from uploaded Excel file"
                 >
                   🔄 Reset to Excel Sample
@@ -1232,6 +1251,12 @@ window.Zoosh.Views.Estimate = {
                 <button 
                   type="button" 
                   class="btn btn-primary" 
+                  onclick="window.Zoosh.Views.Estimate.saveCurrentEstimate()"
+                  style="padding: 7px 18px; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;"
+                >
+                  💾 Save Product Estimate
+                </button>
+              </div>
                   onclick="window.Zoosh.Views.Estimate.saveCurrentEstimate()"
                   style="padding: 8px 20px; font-weight: 800; font-size: 13px; background: #059669; border-color: #059669; display: flex; align-items: center; gap: 6px;"
                 >
@@ -1710,5 +1735,28 @@ window.Zoosh.Views.Estimate = {
 
   printSheet() {
     window.print();
+  },
+
+  exportAllEstimatesCsv() {
+    const state = window.Zoosh.State.getState();
+    const projects = state.projects || [];
+    const clientsMap = new Map((state.clients || []).map(c => [c.id, c]));
+
+    let csv = "ZOOSH FACTORY ESTIMATES - PROJECT SUMMARY ROLLUP\n";
+    csv += "Project,Client,Location,Total Products,Costed Products,Total Mfg Cost (INR),Total Selling Value (INR),Combined Profit (INR),Margin %\n";
+
+    projects.forEach(p => {
+      const summary = window.Zoosh.State.getProjectEstimatesSummary(p.id);
+      const client = clientsMap.get(p.clientId) || {};
+      csv += `"${p.name}","${client.name || p.clientName || ''}","${p.location || ''}",${summary.totalProducts},${summary.estimatedCount},${summary.totalMfgCost},${summary.totalSellingValue},${summary.totalProfit},${summary.overallProfitMargin}%\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Factory_Estimates_Summary_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 };
