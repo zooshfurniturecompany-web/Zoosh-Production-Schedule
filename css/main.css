@@ -14,14 +14,14 @@
   --bg-active: #E2E8F0;
   --bg-blue-light: #EFF6FF;
 
-  /* Typography Colors */
-  --text-main: #172033;
-  --text-secondary: #64748B;
-  --text-muted: #94A3B8;
+  /* Typography Colors - High Contrast & High Legibility */
+  --text-main: #0F172A;
+  --text-secondary: #334155;
+  --text-muted: #64748B;
   --text-on-primary: #FFFFFF;
 
-  /* Borders & Dividers */
-  --border-color: #E2E8F0;
+  /* Borders & Dividers - Crisp & Well Defined */
+  --border-color: #CBD5E1;
   --border-light: #E2E8F0;
   --border-subtle: #F1F5F9;
   --border-focus: #2563EB;
@@ -106,6 +106,22 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+/* User Selection Highlight — Vibrant, Instant High-Contrast Selection */
+::selection {
+  background-color: #2563EB;
+  color: #FFFFFF;
+}
+
+::-moz-selection {
+  background-color: #2563EB;
+  color: #FFFFFF;
+}
+
+input::selection, textarea::selection {
+  background-color: #2563EB;
+  color: #FFFFFF;
 }
 
 html, body {
